@@ -4,6 +4,7 @@
 
 # Universal gravitational constant
 GRAVITY_CONSTANT = 6.67430e-11
+EARTH_GRAVITY_CONSTANT = 9.80665
 
 # Bodies' masses in kilograms (Wikipedia)
 MASSES = {
