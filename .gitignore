@@ -4,4 +4,4 @@ itp
 GTOC*
 scratch*
 *.sh
-*__pycache
+*__pycache*
