@@ -3,6 +3,7 @@
 # This file contains the equations of the multiple gravity assist model
 
 import numpy as np
+from utils.constants import *
 
 G = 6.67430e-11  # universal gravitational constant
 
@@ -10,8 +11,10 @@ G = 6.67430e-11  # universal gravitational constant
 # Utility Functions
 # ================================================================
 
+
 def norm(v):
     return np.linalg.norm(v)
+
 
 def unit(v):
     return v / norm(v)
@@ -21,6 +24,7 @@ def unit(v):
 # Two-body Propagation (universal variable formulation)
 # ================================================================
 
+
 def kepler_propagate(r0, v0, mu, dt):
     """
     Propagate a position/velocity vector under 2-body motion using
@@ -28,14 +32,20 @@ def kepler_propagate(r0, v0, mu, dt):
     """
     r0n = norm(r0)
     v0n = norm(v0)
-    alpha = 2/r0n - v0n**2/mu
+    alpha = 2 / r0n - v0n**2 / mu
 
     # Initial guess for universal variable
     if alpha > 0:
         chi = np.sqrt(mu) * alpha * dt
     else:
-        chi = np.sign(dt)*np.sqrt(-1/alpha) * np.log((-2*mu*alpha*dt)/
-                                                     (dot(r0, v0) + np.sign(dt)*np.sqrt(-mu/alpha)*(1-r0n*alpha)))
+        chi = (
+            np.sign(dt)
+            * np.sqrt(-1 / alpha)
+            * np.log(
+                (-2 * mu * alpha * dt)
+                / (dot(r0, v0) + np.sign(dt) * np.sqrt(-mu / alpha) * (1 - r0n * alpha))
+            )
+        )
 
     # Iterative solve
     for _ in range(50):
@@ -43,27 +53,31 @@ def kepler_propagate(r0, v0, mu, dt):
         C = stumpff_C(z)
         S = stumpff_S(z)
 
-        r = chi**2*C + dot(r0, v0)/np.sqrt(mu)*chi*(1 - z*S) + r0n*(1 - z*C)
-        f = r - mu*dt
+        r = (
+            chi**2 * C
+            + dot(r0, v0) / np.sqrt(mu) * chi * (1 - z * S)
+            + r0n * (1 - z * C)
+        )
+        f = r - mu * dt
         if abs(f) < 1e-8:
             break
-        df = chi*(1 - z*S)
-        chi = chi - f/df
+        df = chi * (1 - z * S)
+        chi = chi - f / df
 
     # f and g functions
     z = alpha * chi**2
     C = stumpff_C(z)
     S = stumpff_S(z)
 
-    f = 1 - chi**2/r0n * C
-    g = dt - chi**3/np.sqrt(mu) * S
-    r = f*r0 + g*v0
+    f = 1 - chi**2 / r0n * C
+    g = dt - chi**3 / np.sqrt(mu) * S
+    r = f * r0 + g * v0
 
     rnorm = norm(r)
-    fdot = np.sqrt(mu)/(r0n*rnorm) * (z*S - 1) * chi
-    gdot = 1 - chi**2/rnorm * C
+    fdot = np.sqrt(mu) / (r0n * rnorm) * (z * S - 1) * chi
+    gdot = 1 - chi**2 / rnorm * C
 
-    v = fdot*r0 + gdot*v0
+    v = fdot * r0 + gdot * v0
 
     return r, v
 
@@ -74,20 +88,22 @@ def stumpff_C(z):
     elif z < 0:
         return (np.cosh(np.sqrt(-z)) - 1) / (-z)
     else:
-        return 1/2
+        return 1 / 2
+
 
 def stumpff_S(z):
     if z > 0:
         return (np.sqrt(z) - np.sin(np.sqrt(z))) / (z**1.5)
     elif z < 0:
-        return (np.sinh(np.sqrt(-z)) - np.sqrt(-z)) / ((-z)**1.5)
+        return (np.sinh(np.sqrt(-z)) - np.sqrt(-z)) / ((-z) ** 1.5)
     else:
-        return 1/6
+        return 1 / 6
 
 
 # ================================================================
 # Lambert Solver (universal-variable form)
 # ================================================================
+
 
 def lambert_universal(r1, r2, dt, mu):
     """
@@ -120,7 +136,7 @@ def lambert_universal(r1, r2, dt, mu):
         C = stumpff_C(z)
         S = stumpff_S(z)
         Y = y(z)
-        return (Y / C)**1.5 * S + A * np.sqrt(Y) - np.sqrt(mu) * dt
+        return (Y / C) ** 1.5 * S + A * np.sqrt(Y) - np.sqrt(mu) * dt
 
     # Newton iteration on z
     for _ in range(100):
@@ -133,9 +149,10 @@ def lambert_universal(r1, r2, dt, mu):
             # L'Hôpital limit for z → 0
             dF = np.sqrt(2) * A / 40 * (Y**1.5)  # safe approximation
         else:
-            dY = (A / 2) * (S / z + (C - 3*S) / (2 * C))
-            dF = (1.5 * np.sqrt(Y) / C - 
-                  Y**1.5 * S / (2 * C**2)) * dY + A * dY / (2 * np.sqrt(Y))
+            dY = (A / 2) * (S / z + (C - 3 * S) / (2 * C))
+            dF = (1.5 * np.sqrt(Y) / C - Y**1.5 * S / (2 * C**2)) * dY + A * dY / (
+                2 * np.sqrt(Y)
+            )
 
         z_next = z - F(z) / dF
         if abs(z_next - z) < 1e-10:
@@ -157,9 +174,11 @@ def lambert_universal(r1, r2, dt, mu):
 
     return v1, v2
 
+
 # ================================================================
 # Gravity-Assist (Patched Conics)
 # ================================================================
+
 
 def gravity_assist(v_inf_in, planet_velocity, mu_planet, rp):
     """
@@ -170,12 +189,12 @@ def gravity_assist(v_inf_in, planet_velocity, mu_planet, rp):
 
     v_inf = norm(v_inf_in)
     e = 1 + rp * v_inf**2 / mu_planet  # hyperbolic eccentricity
-    delta = 2 * np.arcsin(1/e)         # turn angle
+    delta = 2 * np.arcsin(1 / e)  # turn angle
 
     # Choose arbitrary rotation axis orthogonal to v_inf_in
-    axis = unit(np.cross(v_inf_in, np.array([0,0,1])))
+    axis = unit(np.cross(v_inf_in, np.array([0, 0, 1])))
     if norm(axis) < 1e-6:
-        axis = unit(np.cross(v_inf_in, np.array([0,1,0])))
+        axis = unit(np.cross(v_inf_in, np.array([0, 1, 0])))
 
     # Rodrigues rotation
     v_inf_out = rotate(v_inf_in, axis, delta)
@@ -186,16 +205,19 @@ def gravity_assist(v_inf_in, planet_velocity, mu_planet, rp):
 
 def rotate(v, axis, angle):
     axis = unit(axis)
-    return (v*np.cos(angle) +
-            np.cross(axis, v)*np.sin(angle) +
-            axis*np.dot(axis, v)*(1 - np.cos(angle)))
+    return (
+        v * np.cos(angle)
+        + np.cross(axis, v) * np.sin(angle)
+        + axis * np.dot(axis, v) * (1 - np.cos(angle))
+    )
 
 
 # ================================================================
 # Multi-Gravity Assist Mission
 # ================================================================
 
-def multi_gravity_assist(sequence, times, periapses, ephemeris, masses):
+
+def multi_gravity_assist(kernel, sequence, times, periapses, ephemeris, masses):
     """
     sequence : list of planet names, e.g. ["Earth","Venus","Earth","Jupiter"]
     times    : list of encounter epochs
@@ -207,18 +229,18 @@ def multi_gravity_assist(sequence, times, periapses, ephemeris, masses):
 
     # Initial state: spacecraft starts at first planet
     p0 = sequence[0]
-    r0, v0 = ephemeris(p0, times[0])
+    r0, v0 = ephemeris(kernel, p0, times[0])
     v_sc = v0  # assume spacecraft initially co-moving
 
     for i in range(1, len(sequence)):
-        p_in = sequence[i-1]
+        p_in = sequence[i - 1]
         p_out = sequence[i]
 
-        t1 = times[i-1]
+        t1 = times[i - 1]
         t2 = times[i]
 
-        r1, v1_planet = ephemeris(p_in, t1)
-        r2, v2_planet = ephemeris(p_out, t2)
+        r1, v1_planet = ephemeris(kernel, p_in, t1)
+        r2, v2_planet = ephemeris(kernel, p_out, t2)
 
         mu_sun = G * masses["Sun"]
 
@@ -235,13 +257,6 @@ def multi_gravity_assist(sequence, times, periapses, ephemeris, masses):
 
         v_sc = gravity_assist(v_inf_in, v2_planet, mu_planet, rp)
 
-        trajectory.append({
-            "planet": p_out,
-            "t": t2,
-            "r": r2,
-            "v": v_sc
-        })
+        trajectory.append({"planet": p_out, "t": t2, "r": r2, "v": v_sc})
 
     return trajectory
-
-
