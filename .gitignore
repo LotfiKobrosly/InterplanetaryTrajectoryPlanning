@@ -2,3 +2,5 @@ ssh*
 itp
 *.bsp
 GTOC*
+scratch*
+*.sh
