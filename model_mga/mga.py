@@ -2,10 +2,10 @@
 
 # This file contains the equations of the multiple gravity assist model
 
+from collections.abc import Callable
 import numpy as np
+from jplephem.spk import SPK
 from utils.constants import *
-
-G = 6.67430e-11  # universal gravitational constant
 
 # ================================================================
 # Utility Functions
@@ -25,7 +25,7 @@ def unit(v):
 # ================================================================
 
 
-def kepler_propagate(r0, v0, mu, dt):
+def kepler_propagate(r0: np.ndarray, v0: np.ndarray, mu: float, dt: float):
     """
     Propagate a position/velocity vector under 2-body motion using
     universal variable formulation (works for elliptic & hyperbolic).
@@ -82,7 +82,7 @@ def kepler_propagate(r0, v0, mu, dt):
     return r, v
 
 
-def stumpff_C(z):
+def stumpff_C(z: float):
     if z > 0:
         return (1 - np.cos(np.sqrt(z))) / z
     elif z < 0:
@@ -91,7 +91,7 @@ def stumpff_C(z):
         return 1 / 2
 
 
-def stumpff_S(z):
+def stumpff_S(z: float):
     if z > 0:
         return (np.sqrt(z) - np.sin(np.sqrt(z))) / (z**1.5)
     elif z < 0:
@@ -105,7 +105,7 @@ def stumpff_S(z):
 # ================================================================
 
 
-def lambert_universal(r1, r2, dt, mu):
+def lambert_universal(r1: np.ndarray, r2: np.ndarray, dt: float, mu: float):
     """
     Robust Lambert solver using universal variables.
     Returns v1, v2.
@@ -180,7 +180,9 @@ def lambert_universal(r1, r2, dt, mu):
 # ================================================================
 
 
-def gravity_assist(v_inf_in, planet_velocity, mu_planet, rp):
+def gravity_assist(
+    v_inf_in: np.ndarray, planet_velocity: np.ndarray, mu_planet: float, rp: float
+):
     """
     Rotate v_infinity vector around planet using hyperbolic turn angle.
     v_inf_in: incoming heliocentric velocity minus planet velocity
@@ -203,7 +205,7 @@ def gravity_assist(v_inf_in, planet_velocity, mu_planet, rp):
     return v_inf_out + planet_velocity
 
 
-def rotate(v, axis, angle):
+def rotate(v: np.ndarray, axis: np.ndarray, angle: float):
     axis = unit(axis)
     return (
         v * np.cos(angle)
@@ -217,8 +219,16 @@ def rotate(v, axis, angle):
 # ================================================================
 
 
-def multi_gravity_assist(kernel, sequence, times, periapses, ephemeris, masses):
+def multi_gravity_assist(
+    kernel: SPK,
+    sequence: list,
+    times: list,
+    periapses: list,
+    ephemeris: Callable,
+    masses: dict,
+):
     """
+    kernel   : the SPK kernel reading the ephemerids database
     sequence : list of planet names, e.g. ["Earth","Venus","Earth","Jupiter"]
     times    : list of encounter epochs
     periapses: list of periapsis radii for each flyby
@@ -242,7 +252,7 @@ def multi_gravity_assist(kernel, sequence, times, periapses, ephemeris, masses):
         r1, v1_planet = ephemeris(kernel, p_in, t1)
         r2, v2_planet = ephemeris(kernel, p_out, t2)
 
-        mu_sun = G * masses["Sun"]
+        mu_sun = GRAVITY_CONSTANT * masses["Sun"]
 
         # Transfer arc
         v_depart, v_arrive = lambert_universal(r1, r2, t2 - t1, mu_sun)
@@ -252,7 +262,7 @@ def multi_gravity_assist(kernel, sequence, times, periapses, ephemeris, masses):
         v_inf_in = v_arrive - v2_planet
 
         # Gravity assist
-        mu_planet = G * masses[p_out]
+        mu_planet = GRAVITY_CONSTANT * masses[p_out]
         rp = periapses[i]
 
         v_sc = gravity_assist(v_inf_in, v2_planet, mu_planet, rp)

@@ -2,6 +2,9 @@
 
 # Constants used accross the repository
 
+# Universal gravitational constant
+GRAVITY_CONSTANT = 6.67430e-11
+
 # Bodies' masses in kilograms (Wikipedia)
 MASSES = {
     "Sun": 1.9884e30,
