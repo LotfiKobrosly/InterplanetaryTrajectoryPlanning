@@ -1,6 +1,6 @@
 ssh*
 itp
-*.bsp
+./data*
 GTOC*
 scratch*
 *.sh
