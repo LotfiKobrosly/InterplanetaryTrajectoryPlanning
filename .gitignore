@@ -1,7 +1,7 @@
 ssh*
 itp
-./data*
+*data*
 GTOC*
 scratch*
 *.sh
-*__pycache*
+*__pycache__*
