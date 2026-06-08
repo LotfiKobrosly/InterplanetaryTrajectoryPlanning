@@ -1,7 +1,10 @@
 ssh*
-itp
+itp*
 *data*
 GTOC*
 scratch*
 *.sh
-*__pycache__*
+*pycache*
+*.txt
+*.pyc
+*.xlsx

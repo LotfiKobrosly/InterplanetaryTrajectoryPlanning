@@ -4,7 +4,20 @@
 
 # Universal gravitational constant
 GRAVITY_CONSTANT = 6.67430e-11
-EARTH_GRAVITY_CONSTANT = 9.80665
+EARTH_GRAVITY_CONSTANT = 9.80665;
+
+# Solar System Planets compatible with JPL data in pykep
+PLANETS = [
+    "Mercury"
+    "Venus",
+    "Mars",
+    "Earth",
+    "EM Bary",
+    "Jupiter",
+    "Saturn",
+    "Uranus",
+    "Neptune",
+]
 
 # Bodies' masses in kilograms (Wikipedia)
 MASSES = {
@@ -48,3 +61,7 @@ INDICES = {
     "Neptune": (0, 8),
     "Pluto": (0, 9),
 }
+
+# Spacecraft constants
+MAXIMUM_THRUST = 0.1
+ISP = 3000
