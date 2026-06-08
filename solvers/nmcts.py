@@ -6,5 +6,6 @@ import numpy as np
 from utils.constants import PLANETS
 from utils.trajectory_evaluation import evaluate_mga_trajectory
 
-def nmcts():
+def nmcts(level: int = 0):
+	
 	pass

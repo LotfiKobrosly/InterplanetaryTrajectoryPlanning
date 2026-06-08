@@ -8,16 +8,43 @@ EARTH_GRAVITY_CONSTANT = 9.80665;
 
 # Solar System Planets compatible with JPL data in pykep
 PLANETS = [
-    "Mercury"
-    "Venus",
-    "Mars",
-    "Earth",
-    "EM Bary",
-    "Jupiter",
-    "Saturn",
-    "Uranus",
-    "Neptune",
+    "MERCURY"
+    "VENUS",
+    "EARTH",
+    "MARS",
+    "JUPITER",
+    "SATURN",
+    "URANUS",
+    "NEPTUNE",
 ]
+
+# Times of flight bounds in days from Claude estimations
+TOF_BOUNDS = {
+    ("mercury", "venus")   : (60,    250),
+    ("mercury", "earth")   : (90,    350),
+    ("mercury", "mars")    : (150,   500),
+    ("mercury", "jupiter") : (350,   2000),
+    ("mercury", "saturn")  : (900,   4500),
+    ("venus",   "earth")   : (60,    250),
+    ("venus",   "mars")    : (100,   400),
+    ("venus",   "jupiter") : (400,   2500),
+    ("venus",   "saturn")  : (900,   4500),
+    ("earth",   "mars")    : (130,   500),
+    ("earth",   "jupiter") : (400,   2500),
+    ("earth",   "saturn")  : (1000,  5000),
+    ("earth",   "uranus")  : (2000,  12000),
+    ("earth",   "neptune") : (4000,  16000),
+    ("mars",    "jupiter") : (300,   2000),
+    ("mars",    "saturn")  : (800,   4000),
+    ("mars",    "uranus")  : (2000,  10000),
+    ("mars",    "neptune") : (3500,  14000),
+    ("jupiter", "saturn")  : (500,   2500),
+    ("jupiter", "uranus")  : (1000,  5000),
+    ("jupiter", "neptune") : (2000,  8000),
+    ("saturn",  "uranus")  : (1000,  6000),
+    ("saturn",  "neptune") : (1500,  6000),
+    ("uranus",  "neptune") : (2000,  8000),
+}
 
 # Bodies' masses in kilograms (Wikipedia)
 MASSES = {

@@ -10,7 +10,7 @@ def evaluate_mga_trajectory(
     departure_epoch: float,
     planets_sequence: list,
     time_of_flights_list: list,
-    fly_by_parameters: list,
+    planets_flyby_parameters: list,
 ):
 
     # Initializing varibales to store results
@@ -62,7 +62,7 @@ def evaluate_mga_trajectory(
 
         # Gravity assist at planet_index + 1 if not final
         if planet_index + 1 < len(planets_sequence) - 1:
-            fly_by_radius, fly_by_angle = fly_by_parameters[planet_index]
+            fly_by_radius, fly_by_angle = planets_flyby_parameters[planet_index]
 
             if fly_by_radius < 1:
                 return None  # Spacecraft would crash into the planet
