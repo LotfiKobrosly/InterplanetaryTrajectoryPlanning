@@ -2,60 +2,104 @@
 Implements a class for trajectory building
 """
 
+from copy import deepcopy
 import numpy as np
 import pykep as pk
-from utils.constants import PLANETS
+from utils.constants import PLANETS, POLICY_ALGORITHMS, VARIABLES_BOUNDS, TOF_BOUNDS
 from utils.trajectory_evaluation import evaluate_mga_trajectory
 
-class Trajectory():
+
+class Trajectory:
 
     def __init__(self):
         self.variables = {
-            "planets_sequence": list(), # Length msut be >= 2. If 2, a direct flight to goal is considered
+            "planets_sequence": list(),  # Length msut be >= 2. If 2, a direct flight to goal is considered
             "departure_epoch": None,
-            "time_of_flights_list": list(), # Length must be len(plent_sequence) - 1
-            "planets_flyby_parameters": list(), # Length must be len(plent_sequence) - 2
+            "time_of_flights_list": list(),  # Length must be len(plent_sequence) - 1
+            "planets_flyby_parameters": list(),  # Length must be len(plent_sequence) - 2
         }
         self.start = None
         self.goal = None
 
     def reinitialize(self):
         self.variables = {
-            "planets_sequence": list(), # Length msut be >= 2. If 2, a direct flight to goal is considered
+            "planets_sequence": list(),  # Length msut be >= 2. If 2, a direct flight to goal is considered
             "departure_epoch": None,
-            "time_of_flights_list": list(), # Length must be len(plent_sequence) - 1
-            "planets_flyby_parameters": list(), # Length must be len(plent_sequence) - 2
+            "time_of_flights_list": list(),  # Length must be len(plent_sequence) - 1
+            "planets_flyby_parameters": list(),  # Length must be len(planet_sequence) - 2
         }
 
     def set_start_planet(self, planet="Earth"):
-        assert planet.upper() in PLANETS, "Given planet not in the provided list: " + str(PLANETS)
-        self.start = pk.planet(pk.udpla.jpl_lp(planet))
-        self.variables["planets_sequence"] = [self.start]
+        assert planet in PLANETS, "Given planet not in the provided list: " + str(
+            PLANETS
+        )
+        self.start = planet
+        self.variables["planets_sequence"].append(planet)
 
     def set_goal_planet(self, planet="Mars"):
-        assert planet.upper() in PLANETS, "Given planet not in the provided list: " + str(PLANETS)
-        self.goal = pk.planet(pk.udpla.jpl_lp(planet))
+        assert planet in PLANETS, "Given planet not in the provided list: " + str(
+            PLANETS
+        )
+        self.goal = planet
+
+    def define_planets_pool(self):
+        indices = (PLANETS.index(self.start), PLANETS.index(self.goal))
+        self.planets_pool = PLANETS[: max(indices) + 1]
+        self.planets_pool.remove(self.start)
+
+    def instantiate(self, start_planet: str, goal_planet: str):
+        self.set_start_planet(start_planet)
+        self.set_goal_planet(goal_planet)
+        self.define_planets_pool()
+        print("Planets' pool:", self.planets_pool)
 
     def planets_sequence_is_set(self):
-        return self.variables["planets_sequence"] and (self.variables["planets_sequence"][-1] == self.goal)
+        return self.variables["planets_sequence"] and (
+            self.variables["planets_sequence"][-1] == self.goal
+        )
 
     def is_terminal(self):
         return (
             self.planets_sequence_is_set()
             and not (self.variables["departure_epoch"] is None)
-            and len(self.variables["time_of_flights_list"]) == len(self.variables["planets_sequence"] - 1)
-            and len(self.variables["planets_flyby_parameters"]) == len(self.variables["planets_sequence"] - 2)
+            and len(self.variables["time_of_flights_list"])
+            == len(self.variables["planets_sequence"] - 1)
+            and len(self.variables["planets_flyby_parameters"])
+            == len(self.variables["planets_sequence"] - 2)
         )
 
-    def choose_solver(self, solver:str):
-        self.solver = solver
-
     def evaluate(self):
-        results = evaluate_mga_trajectory(**self.variables)
-        return results[0] / 1000 # Convert from m/s to km/s
+        self.mga_results = evaluate_mga_trajectory(**self.variables)
+        return self.mga_results[0] / 1000  # Convert from m/s to km/s
 
-    def step(self, policy: dict=None):
-        if not self.planets_sequence_is_set():
-            pass
-        else:
-            pass
+    def add_planet(self, planet: str):
+        self.variables["planets_sequence"].append(planet)
+        self.planets_pool.remove(planet)
+
+    def set_variables_bounds(self):
+        assert self.planets_sequence_is_set(), "Planets' sequence not set yet"
+        bounds = [VARIABLES_BOUNDS["departure_epoch"]]
+        for planet_id, planet in enumerate(self.variables["planets_sequence"][:-1]):
+            if (
+                planet,
+                self.variables["planets_sequence"][planet_id + 1],
+            ) in TOF_BOUNDS.keys():
+                key = (planet, self.variables["planets_sequence"][planet_id + 1])
+            elif (
+                self.variables["planets_sequence"][planet_id + 1],
+                planet,
+            ) in TOF_BOUNDS.keys():
+                key = (self.variables["planets_sequence"][planet_id + 1], planet)
+            else:
+                raise KeyError(
+                    "Planet couple "
+                    + str((self.variables["planets_sequence"][planet_id + 1], planet))
+                    + " not found in bounds list"
+                )
+            bounds.append(TOF_BOUNDS[key])
+
+        for _ in range(len(self.variables["planets_sequence"]) - 2):
+            bounds.append(VARIABLES_BOUNDS["planet_arrival_radius"])
+            bounds.append(VARIABLES_BOUNDS["planet_arrival_angle"])
+
+        self.bounds = bounds

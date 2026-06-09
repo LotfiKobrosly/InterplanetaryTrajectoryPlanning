@@ -1,49 +1,51 @@
 # Author: Lotfi Kobrosly (2025)
 
+import numpy as np
+
 # Constants used accross the repository
 
 # Universal gravitational constant
 GRAVITY_CONSTANT = 6.67430e-11
-EARTH_GRAVITY_CONSTANT = 9.80665;
+EARTH_GRAVITY_CONSTANT = 9.80665
 
 # Solar System Planets compatible with JPL data in pykep
 PLANETS = [
-    "MERCURY"
-    "VENUS",
-    "EARTH",
-    "MARS",
-    "JUPITER",
-    "SATURN",
-    "URANUS",
-    "NEPTUNE",
+    "Mercury",
+    "Venus",
+    "Earth",
+    "Mars",
+    "Jupiter",
+    "Saturn",
+    "Uranus",
+    "Neptune",
 ]
 
 # Times of flight bounds in days from Claude estimations
 TOF_BOUNDS = {
-    ("mercury", "venus")   : (60,    250),
-    ("mercury", "earth")   : (90,    350),
-    ("mercury", "mars")    : (150,   500),
-    ("mercury", "jupiter") : (350,   2000),
-    ("mercury", "saturn")  : (900,   4500),
-    ("venus",   "earth")   : (60,    250),
-    ("venus",   "mars")    : (100,   400),
-    ("venus",   "jupiter") : (400,   2500),
-    ("venus",   "saturn")  : (900,   4500),
-    ("earth",   "mars")    : (130,   500),
-    ("earth",   "jupiter") : (400,   2500),
-    ("earth",   "saturn")  : (1000,  5000),
-    ("earth",   "uranus")  : (2000,  12000),
-    ("earth",   "neptune") : (4000,  16000),
-    ("mars",    "jupiter") : (300,   2000),
-    ("mars",    "saturn")  : (800,   4000),
-    ("mars",    "uranus")  : (2000,  10000),
-    ("mars",    "neptune") : (3500,  14000),
-    ("jupiter", "saturn")  : (500,   2500),
-    ("jupiter", "uranus")  : (1000,  5000),
-    ("jupiter", "neptune") : (2000,  8000),
-    ("saturn",  "uranus")  : (1000,  6000),
-    ("saturn",  "neptune") : (1500,  6000),
-    ("uranus",  "neptune") : (2000,  8000),
+    ("Mercury", "Venus"): (60, 250),
+    ("Mercury", "Earth"): (90, 350),
+    ("Mercury", "Mars"): (150, 500),
+    ("Mercury", "Jupiter"): (350, 2000),
+    ("Mercury", "Saturn"): (900, 4500),
+    ("Venus", "Earth"): (60, 250),
+    ("Venus", "Mars"): (100, 400),
+    ("Venus", "Jupiter"): (400, 2500),
+    ("Venus", "Saturn"): (900, 4500),
+    ("Earth", "Mars"): (130, 500),
+    ("Earth", "Jupiter"): (400, 2500),
+    ("Earth", "Saturn"): (1000, 5000),
+    ("Earth", "Uranus"): (2000, 12000),
+    ("Earth", "Neptune"): (4000, 16000),
+    ("Mars", "Jupiter"): (300, 2000),
+    ("Mars", "Saturn"): (800, 4000),
+    ("Mars", "Uranus"): (2000, 10000),
+    ("Mars", "Neptune"): (3500, 14000),
+    ("Jupiter", "Saturn"): (500, 2500),
+    ("Jupiter", "Uranus"): (1000, 5000),
+    ("Jupiter", "Neptune"): (2000, 8000),
+    ("Saturn", "Uranus"): (1000, 6000),
+    ("Saturn", "Neptune"): (1500, 6000),
+    ("Uranus", "Neptune"): (2000, 8000),
 }
 
 # Bodies' masses in kilograms (Wikipedia)
@@ -92,3 +94,14 @@ INDICES = {
 # Spacecraft constants
 MAXIMUM_THRUST = 0.1
 ISP = 3000
+
+# Variables bounds
+VARIABLES_BOUNDS = {
+    "departure_epoch": (1000, 2000),  # departure window (mjd2000)
+    "departure_velocity": (0, 10000),  # m/s, generous launcher capability
+    "planet_arrival_radius": (1.05, 10),  # must be > 1 (above planet surface)
+    "planet_arrival_angle": (0, 2 * np.pi),
+}
+
+# Algorithms
+POLICY_ALGORITHMS = ["cnrpa", "cgnrpa", "nrpa", "gnrpa"]

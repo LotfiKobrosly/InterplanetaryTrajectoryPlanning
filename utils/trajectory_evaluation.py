@@ -4,6 +4,7 @@ Trajectory evaluation
 
 import pykep as pk
 import numpy as np
+from utils.constants import VARIABLES_BOUNDS
 
 
 def evaluate_mga_trajectory(
@@ -11,6 +12,8 @@ def evaluate_mga_trajectory(
     planets_sequence: list,
     time_of_flights_list: list,
     planets_flyby_parameters: list,
+    *args,
+    **kwargs,
 ):
 
     # Initializing varibales to store results
@@ -18,6 +21,9 @@ def evaluate_mga_trajectory(
     departure_velocities = list()
     arrival_velocities = list()
     last_departure_velocity = None
+    planets_sequence = [
+        pk.planet(pk.udpla.jpl_lp(planet)) for planet in planets_sequence
+    ]
 
     # Epochs
     epochs_list = [departure_epoch]
@@ -51,6 +57,11 @@ def evaluate_mga_trajectory(
         arrival_velocities.append(arrival_velocity)
 
         if planet_index == 0:
+            if (
+                np.linalg.norm(departure_velocity)
+                > VARIABLES_BOUNDS["departure_velocity"][1]
+            ):
+                total = 1e15
             total_delta_V += np.linalg.norm(
                 departure_velocity - planet_velocities_list[0]
             )
@@ -98,4 +109,10 @@ def evaluate_mga_trajectory(
                 arrival_velocity - planet_velocities_list[-1]
             )
 
-    return total_delta_V, departure_velocities, arrival_velocities, planet_radii_list, planet_velocities_list
+    return (
+        total_delta_V,
+        departure_velocities,
+        arrival_velocities,
+        planet_radii_list,
+        planet_velocities_list,
+    )
