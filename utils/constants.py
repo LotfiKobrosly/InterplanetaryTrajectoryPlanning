@@ -105,3 +105,4 @@ VARIABLES_BOUNDS = {
 
 # Algorithms
 POLICY_ALGORITHMS = ["cnrpa", "cgnrpa", "nrpa", "gnrpa"]
+SAMPLING_FUNCTIONS = ["uniform", "gaussian_cma_es"]

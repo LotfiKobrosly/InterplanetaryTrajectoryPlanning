@@ -6,16 +6,12 @@ from copy import deepcopy
 import random
 import numpy as np
 import pykep as pk
-from utils.constants import PLANETS, VARIABLES_BOUNDS
-from utils.trajectory_evaluation import evaluate_mga_trajectory
+from utils.constants import PLANETS, VARIABLES_BOUNDS, SAMPLING_FUNCTIONS
 from classes.trajectory import Trajectory
-from solvers.continuous_variables_choice.one_shot_vector_choice import (
-    uniform_variables_values_vector,
-    separate_values,
-)
+from solvers.continuous_variables_choice.one_shot_vector_choice import get_variables_values
 
 
-def nmcts(trajectory: Trajectory, level: int = 0):
+def nmcts(trajectory: Trajectory, level: int = 0, sampling_function: str = "uniform"):
     if level == 0:
         # Sequence setting
         while (not trajectory.planets_sequence_is_set()) and len(
@@ -33,27 +29,12 @@ def nmcts(trajectory: Trajectory, level: int = 0):
             # print(trajectory.variables["planets_sequence"])
             trajectory.set_variables_bounds()
             variables = trajectory.variables
-            departure_velocity = 1e12
-            n_iterations = 0
-
-            while (departure_velocity > VARIABLES_BOUNDS["departure_velocity"][1]) and (n_iterations < 1000):
-                n_iterations += 1
-                (
-                    variables["departure_epoch"],
-                    variables["time_of_flights_list"],
-                    variables["planets_flyby_parameters"],
-                ) = separate_values(
-                    uniform_variables_values_vector(trajectory.bounds),
-                    len(variables["planets_sequence"]),
-                )
-                value = trajectory.evaluate()
-                departure_velocity = np.linalg.norm(trajectory.mga_results[1][0])
-                # if departure_velocity < VARIABLES_BOUNDS["departure_velocity"][1]:
-                #     print(f"Valid departure velocity found at: {departure_velocity / 1000:.3f} km/s")
-                #     print("For given sequence:", trajectory.variables["planets_sequence"])
-                #     print(f"Giving delta V of {value:.3f} km/s")
-            if (n_iterations >= 1000) and (departure_velocity > VARIABLES_BOUNDS["departure_velocity"][1]):
-                value = 1e12
+            (
+                variables["departure_epoch"],
+                variables["time_of_flights_list"],
+                variables["planets_flyby_parameters"],
+            ) = get_variables_values(trajectory.bounds, variables["planets_sequence"], sampling_function)
+            value = trajectory.evaluate_mga()
             return trajectory, value
 
     else:
@@ -67,13 +48,13 @@ def nmcts(trajectory: Trajectory, level: int = 0):
                 if planet not in trajectory.variables["planets_sequence"]:
                     temporary_trajectory = deepcopy(trajectory)
                     temporary_trajectory.add_planet(planet)
-                    temporary_trajectory, value = nmcts(temporary_trajectory, level - 1)
+                    temporary_trajectory, value = nmcts(temporary_trajectory, level - 1, sampling_function)
                     if value < best_value:
                         best_value = value
                         best_next_planet = planet
                         best_trajectory = temporary_trajectory
             if best_next_planet is None:
-                raise ValueError("No good trajectory found")
+                best_next_planet = PLANETS[PLANETS.index(trajectory.variables["planets_sequence"][-1]) + 1]
             trajectory.add_planet(best_next_planet)
             # print("Current length:", len(trajectory.variables["planets_sequence"]))
 
@@ -83,7 +64,7 @@ def nmcts(trajectory: Trajectory, level: int = 0):
 if __name__ == "__main__":
     trajectory = Trajectory()
     trajectory.instantiate("Earth", "Saturn")
-    result, value = nmcts(trajectory, 1)
+    result, value = nmcts(trajectory, 1, "gaussian_cma_es")
     print(f"Best delta V: {value:.3f} km/s")
     print("Variables values:")
     print(result.variables)

@@ -68,8 +68,10 @@ class Trajectory:
             == len(self.variables["planets_sequence"] - 2)
         )
 
-    def evaluate(self):
+    def evaluate_mga(self):
         self.mga_results = evaluate_mga_trajectory(**self.variables)
+        if self.mga_results is None:
+            return 1e30 # Invalid sequence
         return self.mga_results[0] / 1000  # Convert from m/s to km/s
 
     def add_planet(self, planet: str):

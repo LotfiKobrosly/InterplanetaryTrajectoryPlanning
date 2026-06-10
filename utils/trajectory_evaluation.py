@@ -8,8 +8,8 @@ from utils.constants import VARIABLES_BOUNDS
 
 
 def evaluate_mga_trajectory(
-    departure_epoch: float,
     planets_sequence: list,
+    departure_epoch: float,
     time_of_flights_list: list,
     planets_flyby_parameters: list,
     *args,
@@ -61,7 +61,7 @@ def evaluate_mga_trajectory(
                 np.linalg.norm(departure_velocity)
                 > VARIABLES_BOUNDS["departure_velocity"][1]
             ):
-                total = 1e15
+                return None # Departure velocity is unfeasible
             total_delta_V += np.linalg.norm(
                 departure_velocity - planet_velocities_list[0]
             )

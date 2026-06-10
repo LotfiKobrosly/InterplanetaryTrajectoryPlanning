@@ -6,9 +6,12 @@ For the gaussian-based implementation, we update the means and covariance with t
 
 import numpy as np
 import cma
-
+from utils.trajectory_evaluation import evaluate_mga_trajectory
 
 def separate_values(input_vector: np.ndarray, planets_sequence_length: int):
+    """
+    Simply seperates the values vector into the desired variables compatible with Trajectory class from classes.trajectory
+    """
     departure_epoch = input_vector[0]
     times_of_flight = input_vector[1:planets_sequence_length]
     flyby_parameters = input_vector[planets_sequence_length:]
@@ -18,83 +21,102 @@ def separate_values(input_vector: np.ndarray, planets_sequence_length: int):
     ]
     return departure_epoch, times_of_flight, flyby_parameters
 
-
-def uniform_variables_values_vector(bounds: list):
-    return np.random.uniform(
-        np.array([bound[0] for bound in bounds]),
-        np.array([bound[1] for bound in bounds]),
-    )
-
-
-def gaussian_variables_values_vector(means: list, variances: list, bounds: list):
-    pass
-
-
-def adapt_gaussian_estimator():
-    pass
-
-
-if __name__ == "__main__":
-    # --- Define your search vector ---
-    # [t0, tof1, tof2, rp1_vrad, beta1]  for pure MGA Earth->Venus->Mars
-
-    # Bounds per variable
-    bounds_lo = [1000, 80, 100, 1.05, 0.0]
-    bounds_hi = [2000, 300, 400, 10.0, 2 * np.pi]
-
-    def normalize(x, lo, hi):
-        return [(xi - l) / (h - l) for xi, l, h in zip(x, lo, hi)]
-
-    def denormalize(x, lo, hi):
-        return [xi * (h - l) + l for xi, l, h in zip(x, lo, hi)]
-
-    def objective(x_norm):
-        """
-        CMA-ES minimizes this. Work in normalized [0,1] space.
-        Returns total Δv, or a large penalty if invalid.
-        """
-        x = denormalize(x_norm, bounds_lo, bounds_hi)
-        t0_mjd, tof1, tof2, rp1, beta1 = x
-
-        result = evaluate_trajectory(
-            t0_mjd=t0_mjd, tof1_days=tof1, tof2_days=tof2, rp1_vrad=rp1, beta1=beta1
+def uniform_variables_values_vector(
+    bounds: list,
+    planets_sequence: list,
+    n_iterations: int=500,
+    *args,
+    **kwargs
+):
+    """
+    Returns a uniformly sampled vector from the given bounds
+    """
+    best_vector = None
+    best_value = 1e30
+    for iteration in range(n_iterations):
+        # Imposing a strict while loop here without the max iterations condition might
+        # result in an endless loop, given the pure random aspect of this algorithm
+        vector = np.random.uniform(
+            np.array([bound[0] for bound in bounds]),
+            np.array([bound[1] for bound in bounds]),
         )
+        result = evaluate_mga_trajectory(
+            planets_sequence,
+            *separate_values(vector, len(planets_sequence))
+        )
+        
+        if not (result is None) and (result[0] < best_value):
+            best_value = result[0]
+            best_vector = vector
+    if best_vector is None:
+        best_vector = vector
+    return best_vector
 
+def gaussian_variables_values_vector(
+    bounds: list,
+    planets_sequence: list,
+    n_iterations: int=500,
+    *args,
+    **kwargs
+):
+    """
+    Returns a sample of a fitted normal distribution through a CMA-ES.
+    """
+    lower_bounds = np.array([bound[0] for bound in bounds])
+    upper_bounds = np.array([bound[1] for bound in bounds])
+
+    def normalize(x, low, high):
+        return [(xi - l) / (h - l) for xi, l, h in zip(x, low, high)]
+
+    def denormalize(x, low, high):
+        return [xi * (h - l) + l for xi, l, h in zip(x, low, high)]
+
+    def objective_function(normalized_vector: np.ndarray):
+        result = evaluate_mga_trajectory(
+            planets_sequence,
+            *separate_values(
+                denormalize(normalized_vector, lower_bounds, upper_bounds),
+                len(planets_sequence),
+            )
+        )
         if result is None:
-            return 1e10  # penalty for invalid trajectory
+            return 1e12  # penalty for invalid trajectory
 
-        return result["total_dv_ms"]
+        return result[0] / 100000
 
     # --- Initial mean: center of search space (normalized) ---
-    x0 = [0.5] * 5  # start at center
-    sigma0 = 0.3  # initial step size (in normalized space)
+    initial_input = [0.9] * len(bounds)
+    sigma0 = 0.2  # initial step size (in normalized space)
 
     # --- CMA-ES options ---
-    opts = cma.CMAOptions()
-    opts["bounds"] = [[0.0] * 5, [1.0] * 5]  # normalized bounds
-    opts["maxiter"] = 500
-    opts["popsize"] = 20  # λ: samples per iteration
-    opts["tolx"] = 1e-6  # convergence on x
-    opts["tolfun"] = 1e-6  # convergence on f
-    opts["verbose"] = 1
+    options = cma.CMAOptions()
+    options["bounds"] = [[0.0] * len(bounds), [1.0] * len(bounds)]  # normalized bounds
+    options["maxiter"] = n_iterations
+    options["popsize"] = 20  # λ : samples per iteration
+    options["tolx"] = 1e-6  # convergence on x
+    options["tolfun"] = 1e-6  # convergence on f
+    options["verbose"] = 0
 
     # --- Run ---
-    es = cma.CMAEvolutionStrategy(x0, sigma0, opts)
+    estimator = cma.CMAEvolutionStrategy(initial_input, sigma0, options)
 
-    while not es.stop():
-        candidates = es.ask()  # sample λ candidates
-        fitnesses = [objective(x) for x in candidates]
-        es.tell(candidates, fitnesses)  # update μ, C, σ
-        es.logger.add()
-        es.disp()
+    while not estimator.stop():
+        candidates = estimator.ask()  # sample λ candidates
+        fitnesses = [objective_function(x) for x in candidates]
+        estimator.tell(candidates, fitnesses)  # update means, covariance, sigma
+        estimator.logger.add()
+        estimator.disp()
 
-    result_norm = es.result.xbest
-    result_x = denormalize(result_norm, bounds_lo, bounds_hi)
+    result_normalized = estimator.result.xbest
+    final_vector = denormalize(result_normalized, lower_bounds, upper_bounds)
+    print("Chosen vector:", final_vector)
+    return final_vector
 
-    print("\nBest solution:")
-    print(f"  t0       : {result_x[0]:.1f} MJD2000")
-    print(f"  tof1     : {result_x[1]:.1f} days")
-    print(f"  tof2     : {result_x[2]:.1f} days")
-    print(f"  rp1      : {result_x[3]:.2f} Venus radii")
-    print(f"  beta1    : {result_x[4]:.3f} rad")
-    print(f"  Best Δv  : {es.result.fbest/1000:.3f} km/s")
+
+def get_variables_values(bounds: list, planets_sequence: list, sampling_function: str):
+    sampling_functions_dict = {
+        "uniform": uniform_variables_values_vector,
+        "gaussian_cma_es": gaussian_variables_values_vector,
+    }
+    input_vector = sampling_functions_dict[sampling_function](bounds, planets_sequence)
+    return separate_values(input_vector, len(planets_sequence))
