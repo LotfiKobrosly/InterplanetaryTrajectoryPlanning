@@ -21,13 +21,6 @@ class Trajectory:
         self.start = None
         self.goal = None
 
-    def reinitialize(self):
-        self.variables = {
-            "planets_sequence": list(),  # Length msut be >= 2. If 2, a direct flight to goal is considered
-            "departure_epoch": None,
-            "time_of_flights_list": list(),  # Length must be len(plent_sequence) - 1
-            "planets_flyby_parameters": list(),  # Length must be len(planet_sequence) - 2
-        }
 
     def set_start_planet(self, planet="Earth"):
         assert planet in PLANETS, "Given planet not in the provided list: " + str(
@@ -51,7 +44,15 @@ class Trajectory:
         self.set_start_planet(start_planet)
         self.set_goal_planet(goal_planet)
         self.define_planets_pool()
-        print("Planets' pool:", self.planets_pool)
+
+    def reinitialize(self):
+        self.variables = {
+            "planets_sequence": [self.start],  # Length msut be >= 2. If 2, a direct flight to goal is considered
+            "departure_epoch": None,
+            "time_of_flights_list": list(),  # Length must be len(plent_sequence) - 1
+            "planets_flyby_parameters": list(),  # Length must be len(planet_sequence) - 2
+        }
+        self.define_planets_pool()
 
     def planets_sequence_is_set(self):
         return self.variables["planets_sequence"] and (

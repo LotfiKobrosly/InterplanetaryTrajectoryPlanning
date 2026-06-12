@@ -8,23 +8,9 @@ import warnings
 import numpy as np
 import cma
 from utils.trajectory_evaluation import evaluate_mga_trajectory
-from utils.constants import VARIABLES_BOUNDS
+from solvers.continuous_variables_choice.values_vector_utils import separate_values
 
 warnings.filterwarnings("ignore")
-
-
-def separate_values(input_vector: np.ndarray, planets_sequence_length: int):
-    """
-    Simply seperates the values vector into the desired variables compatible with Trajectory class from classes.trajectory
-    """
-    departure_epoch = input_vector[0]
-    times_of_flight = input_vector[1:planets_sequence_length]
-    flyby_parameters = input_vector[planets_sequence_length:]
-    flyby_parameters = [
-        (flyby_parameters[i], flyby_parameters[i + 1])
-        for i in range(0, len(flyby_parameters), 2)
-    ]
-    return departure_epoch, times_of_flight, flyby_parameters
 
 
 def uniform_variables_values_vector(
@@ -51,7 +37,12 @@ def uniform_variables_values_vector(
             best_vector = vector
     if best_vector is None:
         best_vector = vector
-    return best_vector
+    return (
+        best_vector,
+        evaluate_mga_trajectory(
+            planets_sequence, *separate_values(best_vector, len(planets_sequence))
+        )[0],
+    )
 
 
 def gaussian_variables_values_vector(
@@ -107,15 +98,10 @@ def gaussian_variables_values_vector(
         estimator.disp()
 
     result_normalized = estimator.result.xbest
-    final_vector = denormalize(result_normalized, lower_bounds, upper_bounds)
-    # print("Chosen vector:", final_vector)
-    return final_vector
-
-
-def get_variables_values(bounds: list, planets_sequence: list, sampling_function: str):
-    sampling_functions_dict = {
-        "uniform": uniform_variables_values_vector,
-        "gaussian_cma_es": gaussian_variables_values_vector,
-    }
-    input_vector = sampling_functions_dict[sampling_function](bounds, planets_sequence)
-    return separate_values(input_vector, len(planets_sequence))
+    best_vector = denormalize(result_normalized, lower_bounds, upper_bounds)
+    return (
+        best_vector,
+        evaluate_mga_trajectory(
+            planets_sequence, *separate_values(best_vector, len(planets_sequence))
+        )[0],
+    )

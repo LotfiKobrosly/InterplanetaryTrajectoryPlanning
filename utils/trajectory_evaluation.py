@@ -8,10 +8,10 @@ from utils.constants import VARIABLES_BOUNDS
 
 
 def evaluate_mga_trajectory(
-    planets_sequence: list,
-    departure_epoch: float,
-    time_of_flights_list: list,
-    planets_flyby_parameters: list,
+    planets_sequence: list = None,
+    departure_epoch: float = None,
+    time_of_flights_list: list = None,
+    planets_flyby_parameters: list = None,
     *args,
     **kwargs,
 ):

@@ -8,7 +8,7 @@ import numpy as np
 import pykep as pk
 from utils.constants import PLANETS, VARIABLES_BOUNDS, SAMPLING_FUNCTIONS
 from classes.trajectory import Trajectory
-from solvers.continuous_variables_choice.one_shot_vector_choice import (
+from solvers.continuous_variables_choice import (
     get_variables_values,
 )
 
@@ -35,10 +35,18 @@ def nmcts(trajectory: Trajectory, level: int = 0, sampling_function: str = "unif
                 variables["departure_epoch"],
                 variables["time_of_flights_list"],
                 variables["planets_flyby_parameters"],
+                value
             ) = get_variables_values(
-                trajectory.bounds, variables["planets_sequence"], sampling_function
+                {
+                    "bounds": trajectory.bounds,
+                    "planets_sequence": variables["planets_sequence"],
+                    "sampling_function": sampling_function,
+                    "n_iterations": 500,                               # for uniform and gaussian sampling
+                    "level": 1,                                        # for cNMCTS
+                    "bandwidth": 25,                                   # for cNMCTS
+                    "values_sequence": list(),                         # for cNMCTS
+                }
             )
-            value = trajectory.evaluate_mga()
             return trajectory, value
 
     else:
@@ -65,17 +73,19 @@ def nmcts(trajectory: Trajectory, level: int = 0, sampling_function: str = "unif
                 ]
             trajectory.add_planet(best_next_planet)
             # print("Current length:", len(trajectory.variables["planets_sequence"]))
-
+        best_trajectory.evaluate_mga()
         return best_trajectory, best_value
 
 
 if __name__ == "__main__":
     trajectory = Trajectory()
     trajectory.instantiate("Earth", "Saturn")
-    result, value = nmcts(trajectory, 1, "uniform")
-    print(f"Best delta V: {value:.3f} km/s")
-    print("Variables values:")
-    print(result.variables)
-    print(
-        f"Departure velocity: {np.linalg.norm(result.mga_results[1][0]) / 1000:.3f} km/s"
-    )
+    for sampling_function in ["uniform", "gaussian_cma_es", "cnmcts"]:
+        print("\nSampling:", sampling_function)
+        trajectory.reinitialize()
+        result, value = nmcts(trajectory, 1, sampling_function)
+        print(f"Best delta V: {value:.3f} km/s")
+        print("Planet sequence:", result.variables["planets_sequence"])
+        print(
+            f"Departure velocity: {np.linalg.norm(result.mga_results[1][0]) / 1000:.3f} km/s"
+        )
