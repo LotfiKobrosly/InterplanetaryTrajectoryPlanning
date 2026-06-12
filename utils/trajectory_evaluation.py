@@ -61,7 +61,10 @@ def evaluate_mga_trajectory(
                 np.linalg.norm(departure_velocity)
                 > VARIABLES_BOUNDS["departure_velocity"][1]
             ):
-                return None # Departure velocity is unfeasible
+                total_delta_V += 1e5 * (
+                    np.linalg.norm(departure_velocity)
+                    - VARIABLES_BOUNDS["departure_velocity"][1]
+                )
             total_delta_V += np.linalg.norm(
                 departure_velocity - planet_velocities_list[0]
             )

@@ -4,9 +4,14 @@ Implements a one-shot choice of the control variables in a vector.
 For the gaussian-based implementation, we update the means and covariance with the CMA-ES (Covariance Matrix Adaptation Evolution Strategy)
 """
 
+import warnings
 import numpy as np
 import cma
 from utils.trajectory_evaluation import evaluate_mga_trajectory
+from utils.constants import VARIABLES_BOUNDS
+
+warnings.filterwarnings("ignore")
+
 
 def separate_values(input_vector: np.ndarray, planets_sequence_length: int):
     """
@@ -21,12 +26,9 @@ def separate_values(input_vector: np.ndarray, planets_sequence_length: int):
     ]
     return departure_epoch, times_of_flight, flyby_parameters
 
+
 def uniform_variables_values_vector(
-    bounds: list,
-    planets_sequence: list,
-    n_iterations: int=500,
-    *args,
-    **kwargs
+    bounds: list, planets_sequence: list, n_iterations: int = 500, *args, **kwargs
 ):
     """
     Returns a uniformly sampled vector from the given bounds
@@ -41,10 +43,9 @@ def uniform_variables_values_vector(
             np.array([bound[1] for bound in bounds]),
         )
         result = evaluate_mga_trajectory(
-            planets_sequence,
-            *separate_values(vector, len(planets_sequence))
+            planets_sequence, *separate_values(vector, len(planets_sequence))
         )
-        
+
         if not (result is None) and (result[0] < best_value):
             best_value = result[0]
             best_vector = vector
@@ -52,12 +53,9 @@ def uniform_variables_values_vector(
         best_vector = vector
     return best_vector
 
+
 def gaussian_variables_values_vector(
-    bounds: list,
-    planets_sequence: list,
-    n_iterations: int=500,
-    *args,
-    **kwargs
+    bounds: list, planets_sequence: list, n_iterations: int = 500, *args, **kwargs
 ):
     """
     Returns a sample of a fitted normal distribution through a CMA-ES.
@@ -80,22 +78,23 @@ def gaussian_variables_values_vector(
             )
         )
         if result is None:
-            return 1e12  # penalty for invalid trajectory
+            return 1e10  # penalty for invalid trajectory
 
-        return result[0] / 100000
+        return result[0] / 1000
 
     # --- Initial mean: center of search space (normalized) ---
-    initial_input = [0.9] * len(bounds)
-    sigma0 = 0.2  # initial step size (in normalized space)
+    initial_input = [0.95] * len(bounds)
+    sigma0 = 10  # initial step size (in normalized space)
 
     # --- CMA-ES options ---
     options = cma.CMAOptions()
     options["bounds"] = [[0.0] * len(bounds), [1.0] * len(bounds)]  # normalized bounds
     options["maxiter"] = n_iterations
     options["popsize"] = 20  # λ : samples per iteration
+    # options['CMA_diagonal'] = True
     options["tolx"] = 1e-6  # convergence on x
     options["tolfun"] = 1e-6  # convergence on f
-    options["verbose"] = 0
+    options["verbose"] = -9
 
     # --- Run ---
     estimator = cma.CMAEvolutionStrategy(initial_input, sigma0, options)
@@ -109,7 +108,7 @@ def gaussian_variables_values_vector(
 
     result_normalized = estimator.result.xbest
     final_vector = denormalize(result_normalized, lower_bounds, upper_bounds)
-    print("Chosen vector:", final_vector)
+    # print("Chosen vector:", final_vector)
     return final_vector
 
 

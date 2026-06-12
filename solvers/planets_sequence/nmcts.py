@@ -8,7 +8,9 @@ import numpy as np
 import pykep as pk
 from utils.constants import PLANETS, VARIABLES_BOUNDS, SAMPLING_FUNCTIONS
 from classes.trajectory import Trajectory
-from solvers.continuous_variables_choice.one_shot_vector_choice import get_variables_values
+from solvers.continuous_variables_choice.one_shot_vector_choice import (
+    get_variables_values,
+)
 
 
 def nmcts(trajectory: Trajectory, level: int = 0, sampling_function: str = "uniform"):
@@ -33,7 +35,9 @@ def nmcts(trajectory: Trajectory, level: int = 0, sampling_function: str = "unif
                 variables["departure_epoch"],
                 variables["time_of_flights_list"],
                 variables["planets_flyby_parameters"],
-            ) = get_variables_values(trajectory.bounds, variables["planets_sequence"], sampling_function)
+            ) = get_variables_values(
+                trajectory.bounds, variables["planets_sequence"], sampling_function
+            )
             value = trajectory.evaluate_mga()
             return trajectory, value
 
@@ -48,13 +52,17 @@ def nmcts(trajectory: Trajectory, level: int = 0, sampling_function: str = "unif
                 if planet not in trajectory.variables["planets_sequence"]:
                     temporary_trajectory = deepcopy(trajectory)
                     temporary_trajectory.add_planet(planet)
-                    temporary_trajectory, value = nmcts(temporary_trajectory, level - 1, sampling_function)
+                    temporary_trajectory, value = nmcts(
+                        temporary_trajectory, level - 1, sampling_function
+                    )
                     if value < best_value:
                         best_value = value
                         best_next_planet = planet
                         best_trajectory = temporary_trajectory
             if best_next_planet is None:
-                best_next_planet = PLANETS[PLANETS.index(trajectory.variables["planets_sequence"][-1]) + 1]
+                best_next_planet = PLANETS[
+                    PLANETS.index(trajectory.variables["planets_sequence"][-1]) + 1
+                ]
             trajectory.add_planet(best_next_planet)
             # print("Current length:", len(trajectory.variables["planets_sequence"]))
 
@@ -64,7 +72,7 @@ def nmcts(trajectory: Trajectory, level: int = 0, sampling_function: str = "unif
 if __name__ == "__main__":
     trajectory = Trajectory()
     trajectory.instantiate("Earth", "Saturn")
-    result, value = nmcts(trajectory, 1, "gaussian_cma_es")
+    result, value = nmcts(trajectory, 1, "uniform")
     print(f"Best delta V: {value:.3f} km/s")
     print("Variables values:")
     print(result.variables)
