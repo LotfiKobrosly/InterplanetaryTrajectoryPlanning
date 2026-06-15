@@ -2,13 +2,17 @@
 Implements a one-shot choice of the control variables in a vector.
 
 For the gaussian-based implementation, we update the means and covariance with the CMA-ES (Covariance Matrix Adaptation Evolution Strategy)
+
+In this file, the values sequence is represented as follows:
+[departure_epoch, time_of_flight_0,..., time_of_flight_n, (arrival_radius_0, arrival_angle_0),..., (arrival_radius_(n-1), arrival_angle(n-1))]
 """
 
 import warnings
 import numpy as np
 import cma
+from sklearn.neural_network import MLPRegressor
 from utils.trajectory_evaluation import evaluate_mga_trajectory
-from solvers.continuous_variables_choice.values_vector_utils import separate_values
+from solvers.continuous_variables_choice.values_separators import separate_vector_values
 
 warnings.filterwarnings("ignore")
 
@@ -29,7 +33,7 @@ def uniform_variables_values_vector(
             np.array([bound[1] for bound in bounds]),
         )
         result = evaluate_mga_trajectory(
-            planets_sequence, *separate_values(vector, len(planets_sequence))
+            planets_sequence, *separate_vector_values(vector, len(planets_sequence))
         )
 
         if not (result is None) and (result[0] < best_value):
@@ -40,7 +44,7 @@ def uniform_variables_values_vector(
     return (
         best_vector,
         evaluate_mga_trajectory(
-            planets_sequence, *separate_values(best_vector, len(planets_sequence))
+            planets_sequence, *separate_vector_values(best_vector, len(planets_sequence))
         )[0],
     )
 
@@ -63,7 +67,7 @@ def gaussian_variables_values_vector(
     def objective_function(normalized_vector: np.ndarray):
         result = evaluate_mga_trajectory(
             planets_sequence,
-            *separate_values(
+            *separate_vector_values(
                 denormalize(normalized_vector, lower_bounds, upper_bounds),
                 len(planets_sequence),
             )
@@ -102,6 +106,6 @@ def gaussian_variables_values_vector(
     return (
         best_vector,
         evaluate_mga_trajectory(
-            planets_sequence, *separate_values(best_vector, len(planets_sequence))
+            planets_sequence, *separate_vector_values(best_vector, len(planets_sequence))
         )[0],
     )

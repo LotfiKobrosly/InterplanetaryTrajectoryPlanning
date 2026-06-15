@@ -81,7 +81,8 @@ class Trajectory:
 
     def set_variables_bounds(self):
         assert self.planets_sequence_is_set(), "Planets' sequence not set yet"
-        bounds = [VARIABLES_BOUNDS["departure_epoch"]]
+        vector_bounds = [VARIABLES_BOUNDS["departure_epoch"]]
+        sequence_bounds = [VARIABLES_BOUNDS["departure_epoch"]]
         for planet_id, planet in enumerate(self.variables["planets_sequence"][:-1]):
             if (
                 planet,
@@ -99,10 +100,16 @@ class Trajectory:
                     + str((self.variables["planets_sequence"][planet_id + 1], planet))
                     + " not found in bounds list"
                 )
-            bounds.append(TOF_BOUNDS[key])
+            vector_bounds.append(TOF_BOUNDS[key])
+            if planet_id < len(self.variables["planets_sequence"]) - 2:
+                sequence_element = [TOF_BOUNDS[key], VARIABLES_BOUNDS["planet_arrival_radius"], VARIABLES_BOUNDS["planet_arrival_angle"]]
+            else:
+                sequence_element = TOF_BOUNDS[key]
+            sequence_bounds.append(sequence_element)
 
         for _ in range(len(self.variables["planets_sequence"]) - 2):
-            bounds.append(VARIABLES_BOUNDS["planet_arrival_radius"])
-            bounds.append(VARIABLES_BOUNDS["planet_arrival_angle"])
+            vector_bounds.append(VARIABLES_BOUNDS["planet_arrival_radius"])
+            vector_bounds.append(VARIABLES_BOUNDS["planet_arrival_angle"])
 
-        self.bounds = bounds
+        self.vector_bounds = vector_bounds
+        self.sequence_bounds = sequence_bounds

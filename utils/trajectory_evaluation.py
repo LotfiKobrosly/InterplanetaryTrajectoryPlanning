@@ -61,7 +61,7 @@ def evaluate_mga_trajectory(
                 np.linalg.norm(departure_velocity)
                 > VARIABLES_BOUNDS["departure_velocity"][1]
             ):
-                total_delta_V += 1e5 * (
+                total_delta_V += 1e10 * (
                     np.linalg.norm(departure_velocity)
                     - VARIABLES_BOUNDS["departure_velocity"][1]
                 )
