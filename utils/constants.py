@@ -3,6 +3,9 @@
 import numpy as np
 
 # Constants used accross the repository
+RANDOM_SEED = 1
+RANDOM_GENERATOR = np.random.default_rng(seed=RANDOM_SEED)
+GAUSSIAN_KERNEL_THRESHOLD = 0.05
 
 # Universal gravitational constant
 GRAVITY_CONSTANT = 6.67430e-11
@@ -99,12 +102,14 @@ ISP = 3000
 VARIABLES_BOUNDS = {
     "departure_epoch": (1000, 2000),  # departure window (mjd2000)
     "departure_velocity": (0, 10000),  # m/s, generous launcher capability
-    "planet_arrival_radius": (1.05, 10),  # must be > 1 (above planet surface)
-    "planet_arrival_angle": (0, 2 * np.pi),
 }
+SAFE_RADIUS_FACTOR = 1.05
+UNFEASIBILITY_VALUE = 1e20
+VELOCITY_NORMALIZING_FACTOR = 40000
 
 # Algorithms
 POLICY_ALGORITHMS = ["cnrpa", "cgnrpa", "nrpa", "gnrpa"]
 SAMPLING_FUNCTIONS = ["uniform", "gaussian_cma_es", "cnrpa", "cnmcts"]
-SEQUENCE_FUNCTIONS = ["cnrpa", "cnmcts"]
-VECTOR_FUNCTIONS = ["gaussian_cma_es", "uniform"]
+
+# cGNRPA
+N_CANDIDATES = 25

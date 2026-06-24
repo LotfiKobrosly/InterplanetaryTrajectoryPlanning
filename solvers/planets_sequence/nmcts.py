@@ -6,15 +6,23 @@ from copy import deepcopy
 import random
 import numpy as np
 import pykep as pk
-from utils.constants import PLANETS, VARIABLES_BOUNDS, SAMPLING_FUNCTIONS, SEQUENCE_FUNCTIONS, VECTOR_FUNCTIONS
+from utils.constants import (
+    PLANETS,
+    VARIABLES_BOUNDS,
+    SAMPLING_FUNCTIONS,
+)
 from classes.trajectory import Trajectory
 from solvers.continuous_variables_choice import (
     get_variables_values,
 )
 
 
-
-def nmcts(trajectory: Trajectory, level: int = 0, sampling_function: str = "uniform"):
+def nmcts(
+    trajectory: Trajectory, level: int = 0, continuous_variables_parameters: dict = None
+):
+    assert (
+        continuous_variables_parameters["sampling_function"] in SAMPLING_FUNCTIONS
+    ), "Specified sampling_function is unrecognizable"
     if level == 0:
         # Sequence setting
         while (not trajectory.planets_sequence_is_set()) and len(
@@ -32,71 +40,70 @@ def nmcts(trajectory: Trajectory, level: int = 0, sampling_function: str = "unif
             # print(trajectory.variables["planets_sequence"])
             trajectory.set_variables_bounds()
             variables = trajectory.variables
-            input_values = {
-                "planets_sequence": variables["planets_sequence"],
-                "sampling_function": sampling_function,
-                "n_iterations": 500,                               # for uniform and gaussian sampling
-                "level": 2,                                        # for cNMCTS, cNRPA and derivatives
-                "bandwidth": 15,                                   # for cNMCTS
-                "values_sequence": list(),                         # for cNMCTS
-            }
-            if sampling_function in SEQUENCE_FUNCTIONS:
-                input_values["bounds"] = trajectory.sequence_bounds
-            elif sampling_function in VECTOR_FUNCTIONS:
-                input_values["bounds"] = trajectory.vector_bounds
-            else:
-                raise ValueError("Specified sampling_function is unrecognizable")
+            # print("Planets: ", variables["planets_sequence"])
+            # print("Bounds: ", trajectory.bounds)
+            input_values = deepcopy(continuous_variables_parameters)
+            input_values["planets_sequence"] = variables["planets_sequence"]
+            input_values["bounds"] = trajectory.bounds
             (
                 variables["departure_epoch"],
                 variables["time_of_flights_list"],
-                variables["planets_flyby_parameters"],
-                value
+                delta_v,
             ) = get_variables_values(input_values)
-            return trajectory, value
+            return trajectory, delta_v
 
     else:
+        best_planet_sequence = None
+        best_value = np.inf
+        best_trajectory = None
         while not trajectory.planets_sequence_is_set() and len(
             trajectory.variables["planets_sequence"]
         ) < len(PLANETS):
-            best_value = 1e30
-            best_next_planet = None
-            best_trajectory = None
             for planet in trajectory.planets_pool:
                 if planet not in trajectory.variables["planets_sequence"]:
                     temporary_trajectory = deepcopy(trajectory)
+                    temporary_trajectory.variables = deepcopy(trajectory.variables)
                     temporary_trajectory.add_planet(planet)
                     temporary_trajectory, value = nmcts(
-                        temporary_trajectory, level - 1, sampling_function
+                        temporary_trajectory, level - 1, continuous_variables_parameters
                     )
                     if value < best_value:
                         best_value = value
-                        best_next_planet = planet
-                        best_trajectory = temporary_trajectory
-            if best_next_planet is None:
-                best_next_planet = PLANETS[
-                    PLANETS.index(trajectory.variables["planets_sequence"][-1]) + 1
-                ]
+                        best_trajectory = deepcopy(temporary_trajectory)
+            best_next_planet = best_trajectory.variables["planets_sequence"][
+                len(trajectory.variables["planets_sequence"])
+            ]
             trajectory.add_planet(best_next_planet)
             # print("Current length:", len(trajectory.variables["planets_sequence"]))
-        best_trajectory.evaluate_mga()
+        # best_trajectory.evaluate_mga()
         return best_trajectory, best_value
 
 
 if __name__ == "__main__":
     trajectory = Trajectory()
-    trajectory.instantiate("Earth", "Saturn")
-    for sampling_function in ["uniform", "gaussian_cma_es", "cnmcts"]:
-        print("\nSampling:", sampling_function)
-        trajectory.reinitialize()
-        trajectory, value = nmcts(trajectory, 1, sampling_function)
-        print(f"Best delta V: {value:.3f} km/s")
-        print("Planet sequence:", trajectory.variables["planets_sequence"])
-        print("Departures velocities:")
-        for velocity in trajectory.mga_results[1]:
-            print(f"   {np.linalg.norm(velocity) / 1000:.3f} km/s ")
-        print("Arrivals velocities:")
-        for velocity in trajectory.mga_results[2]:
-            print(f"   {np.linalg.norm(velocity) / 1000:.3f} km/s ")
-        print("Planets velocities:")
-        for velocity in trajectory.mga_results[-1]:
-            print(f"   {np.linalg.norm(velocity) / 1000:.3f} km/s ")
+    trajectory.instantiate("Earth", "Jupiter")
+    # for sampling_function in ["cnrpa"]: #["uniform", "gaussian_cma_es", "cnmcts"]:
+    continuous_variables_parameters = {
+        "sampling_function": "cnrpa",
+        "n_iterations": 500,  # for uniform and gaussian sampling
+        "level": 1,  # for cNMCTS, cNRPA and derivatives
+        "bandwidth": 25,  # for cNMCTS
+        "n_policies": 2000,  # for cNRPA and derivatives
+        "state_dependency": True,  # for cNRPA and derivatives
+        "learning_rate": 0.01,  # for cGNRPA and derivatives
+    }
+    print("\nSampling:", continuous_variables_parameters["sampling_function"])
+    trajectory.reinitialize()
+    trajectory, value = nmcts(trajectory, 2, continuous_variables_parameters)
+    print(f"Value inside class instance: {trajectory.evaluate_mga() / 1000:.3f} km/s")
+    print(f"Best delta V: {value / 1000:.3f} km/s")
+    print("Planet sequence:", trajectory.variables["planets_sequence"])
+    print("Departures velocities:")
+    for velocity in trajectory.mga_results[1]:
+        print(f"   {np.linalg.norm(velocity) / 1000:.3f} km/s ")
+    print("Arrivals velocities:")
+    for velocity in trajectory.mga_results[2]:
+        print(f"   {np.linalg.norm(velocity) / 1000:.3f} km/s ")
+    print("Planets velocities:")
+    for velocity in trajectory.mga_results[-1]:
+        print(f"   {np.linalg.norm(velocity) / 1000:.3f} km/s ")

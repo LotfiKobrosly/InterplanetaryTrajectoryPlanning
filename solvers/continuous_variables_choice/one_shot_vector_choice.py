@@ -10,9 +10,10 @@ In this file, the values sequence is represented as follows:
 import warnings
 import numpy as np
 import cma
-from sklearn.neural_network import MLPRegressor
 from utils.trajectory_evaluation import evaluate_mga_trajectory
-from solvers.continuous_variables_choice.values_separators import separate_vector_values
+from utils.basic_functions import normalize, denormalize
+from utils.constants import RANDOM_GENERATOR
+from solvers.continuous_variables_choice.values_separators import separate_values
 
 warnings.filterwarnings("ignore")
 
@@ -28,13 +29,12 @@ def uniform_variables_values_vector(
     for iteration in range(n_iterations):
         # Imposing a strict while loop here without the max iterations condition might
         # result in an endless loop, given the pure random aspect of this algorithm
-        vector = np.random.uniform(
+        vector = RANDOM_GENERATOR.uniform(
             np.array([bound[0] for bound in bounds]),
             np.array([bound[1] for bound in bounds]),
         )
-        result = evaluate_mga_trajectory(
-            planets_sequence, *separate_vector_values(vector, len(planets_sequence))
-        )
+        result = evaluate_mga_trajectory(planets_sequence, *separate_values(vector))
+        # print(result)
 
         if not (result is None) and (result[0] < best_value):
             best_value = result[0]
@@ -43,9 +43,7 @@ def uniform_variables_values_vector(
         best_vector = vector
     return (
         best_vector,
-        evaluate_mga_trajectory(
-            planets_sequence, *separate_vector_values(best_vector, len(planets_sequence))
-        )[0],
+        evaluate_mga_trajectory(planets_sequence, *separate_values(best_vector))[0],
     )
 
 
@@ -58,19 +56,10 @@ def gaussian_variables_values_vector(
     lower_bounds = np.array([bound[0] for bound in bounds])
     upper_bounds = np.array([bound[1] for bound in bounds])
 
-    def normalize(x, low, high):
-        return [(xi - l) / (h - l) for xi, l, h in zip(x, low, high)]
-
-    def denormalize(x, low, high):
-        return [xi * (h - l) + l for xi, l, h in zip(x, low, high)]
-
     def objective_function(normalized_vector: np.ndarray):
         result = evaluate_mga_trajectory(
             planets_sequence,
-            *separate_vector_values(
-                denormalize(normalized_vector, lower_bounds, upper_bounds),
-                len(planets_sequence),
-            )
+            *separate_values(denormalize(normalized_vector, lower_bounds, upper_bounds))
         )
         if result is None:
             return 1e10  # penalty for invalid trajectory
@@ -85,11 +74,11 @@ def gaussian_variables_values_vector(
     options = cma.CMAOptions()
     options["bounds"] = [[0.0] * len(bounds), [1.0] * len(bounds)]  # normalized bounds
     options["maxiter"] = n_iterations
-    options["popsize"] = 20  # λ : samples per iteration
+    options["popsize"] = 50  # λ : samples per iteration
     # options['CMA_diagonal'] = True
     options["tolx"] = 1e-6  # convergence on x
     options["tolfun"] = 1e-6  # convergence on f
-    options["verbose"] = -9
+    options["verbose"] = -9  # this value means no verboses
 
     # --- Run ---
     estimator = cma.CMAEvolutionStrategy(initial_input, sigma0, options)
@@ -105,7 +94,5 @@ def gaussian_variables_values_vector(
     best_vector = denormalize(result_normalized, lower_bounds, upper_bounds)
     return (
         best_vector,
-        evaluate_mga_trajectory(
-            planets_sequence, *separate_vector_values(best_vector, len(planets_sequence))
-        )[0],
+        evaluate_mga_trajectory(planets_sequence, *separate_values(best_vector))[0],
     )
