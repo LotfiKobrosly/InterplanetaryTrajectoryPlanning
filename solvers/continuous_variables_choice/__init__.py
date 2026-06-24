@@ -4,6 +4,7 @@ Implements global function to return values vector
 
 from solvers.continuous_variables_choice.cnmcts import cnmcts
 from solvers.continuous_variables_choice.cnrpa import cnrpa
+from solvers.continuous_variables_choice.cgnrpa import cgnrpa
 from solvers.continuous_variables_choice.one_shot_vector_choice import (
     uniform_variables_values_vector,
     gaussian_variables_values_vector,
@@ -15,6 +16,7 @@ SAMPLING_FUNCTIONS = {
     "gaussian_cma_es": gaussian_variables_values_vector,
     "cnmcts": cnmcts,
     "cnrpa": cnrpa,
+    "cgnrpa": cgnrpa,
 }
 
 
