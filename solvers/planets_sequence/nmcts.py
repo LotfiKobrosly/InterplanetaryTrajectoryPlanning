@@ -84,13 +84,14 @@ if __name__ == "__main__":
     trajectory.instantiate("Earth", "Jupiter")
     # for sampling_function in ["cnrpa"]: #["uniform", "gaussian_cma_es", "cnmcts"]:
     continuous_variables_parameters = {
-        "sampling_function": "cnrpa",
+        "sampling_function": "cgnrpa",
         "n_iterations": 500,  # for uniform and gaussian sampling
         "level": 1,  # for cNMCTS, cNRPA and derivatives
         "bandwidth": 25,  # for cNMCTS
         "n_policies": 2000,  # for cNRPA and derivatives
-        "state_dependency": True,  # for cNRPA and derivatives
-        "learning_rate": 0.01,  # for cGNRPA and derivatives
+        "multiple_values_policy": True,  # for cNRPA and derivatives
+        "learning_rate": 0.01,  # for cNRPA and derivatives
+        "tau": 20,
     }
     print("\nSampling:", continuous_variables_parameters["sampling_function"])
     trajectory.reinitialize()

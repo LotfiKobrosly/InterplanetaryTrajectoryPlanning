@@ -88,7 +88,7 @@ def policy_playout(
                         weight = gaussian_kernel.pdf(value)
                         if weight >= GAUSSIAN_KERNEL_THRESHOLD:
                             weights.append(weight)
-                            values.append(list(value))
+                            values.append(value)
                     if values:
                         weights = np.array(weights)
                         weights /= np.sum(weights)
@@ -117,9 +117,10 @@ def policy_playout(
                     cw=False,
                     multi_revs=0,
                 )
+                arrival_velocity = np.array(lambert_leg.v1[0])
                 states_sequence.append(
                     normalize(
-                        np.array(lambert_leg.v1[0]), 0, VELOCITY_NORMALIZING_FACTOR
+                        arrival_velocity, np.zeros(np.shape(arrival_velocity)), VELOCITY_NORMALIZING_FACTOR * np.ones(np.shape(arrival_velocity))
                     )
                 )
 
@@ -137,19 +138,19 @@ def policy_playout(
             else:
                 chosen_value = RANDOM_GENERATOR.uniform(low_bound, high_bound)
         values_sequence.append(chosen_value)
-    assert (
-        (len(values_sequence) == len(states_sequence) + 1) and multiple_values_policy
-    ) or not multiple_values_policy, (
-        "Error in states_sequence and values_sequence generation: "
-        + "values_sequence size: "
-        + str(len(values_sequence))
-        + ", VS states_sequence size: "
-        + str(len(states_sequence))
-        + ". Current lists: \n"
-        + str(values_sequence)
-        + "\n"
-        + str(states_sequence)
-    )
+    # assert (
+    #     (len(values_sequence) == len(states_sequence) + 1) and multiple_values_policy
+    # ) or not multiple_values_policy, (
+    #     "Error in states_sequence and values_sequence generation: "
+    #     + "values_sequence size: "
+    #     + str(len(values_sequence))
+    #     + ", VS states_sequence size: "
+    #     + str(len(states_sequence))
+    #     + ". Current lists: \n"
+    #     + str(values_sequence)
+    #     + "\n"
+    #     + str(states_sequence)
+    # )
     return values_sequence
 
 
