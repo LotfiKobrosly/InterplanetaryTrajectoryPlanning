@@ -109,7 +109,14 @@ VELOCITY_NORMALIZING_FACTOR = 40000
 
 # Algorithms
 POLICY_ALGORITHMS = ["cnrpa", "cgnrpa", "nrpa", "gnrpa"]
-SAMPLING_FUNCTIONS = ["uniform", "gaussian_cma_es", "cnrpa", "cnmcts", "cgnrpa"]
+SAMPLING_FUNCTIONS = [
+    "uniform",
+    "gaussian_cma_es",
+    "cnmcts",
+    "crbnmcts",
+    "cnrpa",
+    "cgnrpa",
+]
 
 # cGNRPA
 N_CANDIDATES = 25

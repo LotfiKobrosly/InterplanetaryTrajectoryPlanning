@@ -1,11 +1,11 @@
 """
 Implements Continuous Generalized Nested Rollout Policy for continuous variables' values choice
 Here, the values sequence is represented as follows:
-values_sequence = [departure_epoch, (time_of_flight_0, radius_0, angle_0), ..., (time_of_flight_(n-1), radius_(n-1), angle_(n-1), time_of_flight_n]
+values_sequence = [departure_epoch, time_of_flight_0, ..., time_of_flight_n]
 
 We would do the lambert leg values computation as well as the gravity assist impulses as a way to get heuristic values for GNRPA:
 - At each step for action selection (except first step), generate candidates from the policy and store their weights
-- Compute for each candidate tuple (TOF, radius, angle) the Lambert leg and the flyby result
+- Compute for each candidate TOF the Lambert leg and the flyby result
 - Use these results to generate the biases values
 - Add the biases to the candidates' weights and do the selection
 
@@ -16,7 +16,14 @@ from copy import deepcopy
 import numpy as np
 import pykep as pk
 from utils.trajectory_evaluation import evaluate_mga_trajectory
-from utils.constants import GAUSSIAN_KERNEL_THRESHOLD, RANDOM_GENERATOR, VELOCITY_NORMALIZING_FACTOR, UNFEASIBILITY_VALUE, N_CANDIDATES, SAFE_RADIUS_FACTOR
+from utils.constants import (
+    GAUSSIAN_KERNEL_THRESHOLD,
+    RANDOM_GENERATOR,
+    VELOCITY_NORMALIZING_FACTOR,
+    UNFEASIBILITY_VALUE,
+    N_CANDIDATES,
+    SAFE_RADIUS_FACTOR,
+)
 from utils.basic_functions import normalize, denormalize, code, truncate
 from solvers.continuous_variables_choice.values_separators import (
     separate_values,
@@ -71,7 +78,9 @@ def biased_policy_playout(
             else:
                 if policy:
                     current_policy = policy[advancement]
-                    gaussian_kernel = GaussianKernel(states_sequence[-1], sigma=std_factor)
+                    gaussian_kernel = GaussianKernel(
+                        states_sequence[-1], sigma=std_factor
+                    )
                     values, weights = list(), list()
                     for key in current_policy.keys():
                         if isinstance(current_policy[key], (float, int)):
@@ -95,13 +104,20 @@ def biased_policy_playout(
                             )
                             for _ in range(N_CANDIDATES)
                         ]
-                        weights_list = [gaussian_kernel.pdf(candidate) for candidate in candidates_list]
+                        weights_list = [
+                            gaussian_kernel.pdf(candidate)
+                            for candidate in candidates_list
+                        ]
                     else:
-                        candidates_list = RANDOM_GENERATOR.uniform(low_bound, high_bound, size=N_CANDIDATES)
-                        weights_list = [1/N_CANDIDATES] * N_CANDIDATES
+                        candidates_list = RANDOM_GENERATOR.uniform(
+                            low_bound, high_bound, size=N_CANDIDATES
+                        )
+                        weights_list = [1 / N_CANDIDATES] * N_CANDIDATES
                 else:
-                    candidates_list = RANDOM_GENERATOR.uniform(low_bound, high_bound, size=N_CANDIDATES)
-                    weights_list = [1/N_CANDIDATES] * N_CANDIDATES
+                    candidates_list = RANDOM_GENERATOR.uniform(
+                        low_bound, high_bound, size=N_CANDIDATES
+                    )
+                    weights_list = [1 / N_CANDIDATES] * N_CANDIDATES
 
                 # Lambet legs
                 epoch_list.append(epoch_list[-1] + chosen_value)
@@ -121,15 +137,26 @@ def biased_policy_playout(
 
                     if advancement == 1:
                         # After departure, also valid if planet_sequence is of size 2
-                        local_delta_v_list.append(np.linalg.norm(departure_velocity - planets_velocities_list[0])) 
+                        local_delta_v_list.append(
+                            np.linalg.norm(
+                                departure_velocity - planets_velocities_list[0]
+                            )
+                        )
                     else:
                         # Check feasibility and compute delta_v
                         try:
                             _, violation = pk.fb_con(
-                                v_rel_in  = (last_arrival_velocity - planets_velocities_list[advancement - 1]).tolist(),
-                                v_rel_out = (departure_velocity - planets_velocities_list[advancement - 1]).tolist(),
+                                v_rel_in=(
+                                    last_arrival_velocity
+                                    - planets_velocities_list[advancement - 1]
+                                ).tolist(),
+                                v_rel_out=(
+                                    departure_velocity
+                                    - planets_velocities_list[advancement - 1]
+                                ).tolist(),
                                 mu=planets_sequence[advancement - 1].mu_self,
-                                safe_radius=planets_sequence[advancement - 1].radius * SAFE_RADIUS_FACTOR,
+                                safe_radius=planets_sequence[advancement - 1].radius
+                                * SAFE_RADIUS_FACTOR,
                                 # pl        = planet  # pykep planet object knows its own mu, radius
                             )
                         except IndexError:
@@ -137,16 +164,27 @@ def biased_policy_playout(
                             print("Planets: ", planets_sequence)
                             print("Velocities: ", planets_velocities_list)
                             raise IndexError
-                        if violation > 0: # value needs to be non-positive to be geometrically feasible
+                        if (
+                            violation > 0
+                        ):  # value needs to be non-positive to be geometrically feasible
                             local_delta_v_list.append(UNFEASIBILITY_VALUE)
                         else:
                             delta_velocity_planet = pk.fb_dv(
-                                v_rel_in  = (last_arrival_velocity - planets_velocities_list[advancement - 1]).tolist(),
-                                v_rel_out = (departure_velocity - planets_velocities_list[advancement - 1]).tolist(),
+                                v_rel_in=(
+                                    last_arrival_velocity
+                                    - planets_velocities_list[advancement - 1]
+                                ).tolist(),
+                                v_rel_out=(
+                                    departure_velocity
+                                    - planets_velocities_list[advancement - 1]
+                                ).tolist(),
                                 mu=planets_sequence[advancement - 1].mu_self,
-                                safe_radius=planets_sequence[advancement - 1].radius * SAFE_RADIUS_FACTOR,  # 5% margin above surface
+                                safe_radius=planets_sequence[advancement - 1].radius
+                                * SAFE_RADIUS_FACTOR,  # 5% margin above surface
                             )
-                            local_delta_v_list.append(np.linalg.norm(delta_velocity_planet))
+                            local_delta_v_list.append(
+                                np.linalg.norm(delta_velocity_planet)
+                            )
                 # Choosing the best candidate
                 indices = np.argsort(local_delta_v_list)
                 candidates_list = np.array(candidates_list)[indices]
@@ -158,7 +196,9 @@ def biased_policy_playout(
                         weights_list[index] = 0
                     else:
                         biases_list[index] = 1 / (index + 1)
-                probabilites = np.exp(np.array(weights_list) / tau + np.array(biases_list))
+                probabilites = np.exp(
+                    np.array(weights_list) / tau + np.array(biases_list)
+                )
                 probabilites /= np.sum(probabilites)
                 chosen_value = RANDOM_GENERATOR.choice(candidates_list, p=probabilites)
 
@@ -178,26 +218,23 @@ def biased_policy_playout(
                 last_arrival_velocity = arrival_velocity
                 states_sequence.append(
                     normalize(
-                        arrival_velocity, np.zeros(np.shape(arrival_velocity)), VELOCITY_NORMALIZING_FACTOR * np.ones(np.shape(arrival_velocity))
+                        arrival_velocity,
+                        np.zeros(np.shape(arrival_velocity)),
+                        VELOCITY_NORMALIZING_FACTOR
+                        * np.ones(np.shape(arrival_velocity)),
                     )
                 )
         else:
             if policy:
-                chosen_value = RANDOM_GENERATOR.normal(policy[advancement], std_factor * (high_bound - low_bound) / 10)
+                chosen_value = RANDOM_GENERATOR.normal(
+                    policy[advancement], std_factor * (high_bound - low_bound) / 10
+                )
                 chosen_value = truncate(chosen_value, low_bound, high_bound)
-            else:    
+            else:
                 chosen_value = RANDOM_GENERATOR.uniform(low_bound, high_bound)
         values_sequence.append(chosen_value)
-    # assert (
-    #     ((len(values_sequence) == len(states_sequence) + 1) and multiple_values_policy)
-    #     or not multiple_values_policy
-    # ), (
-    #     "Error in states_sequence and values_sequence generation: "
-    #     + "values_sequence size: " + str(len(values_sequence))
-    #     + ", VS states_sequence size: " + str(len(states_sequence))
-    #     + ". Current lists: \n" + str(values_sequence) + "\n" + str(states_sequence)
-    # )
     return values_sequence
+
 
 def cgnrpa(
     values_sequence: list = list(),

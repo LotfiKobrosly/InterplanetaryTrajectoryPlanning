@@ -10,6 +10,7 @@ from utils.constants import (
     PLANETS,
     VARIABLES_BOUNDS,
     SAMPLING_FUNCTIONS,
+    UNFEASIBILITY_VALUE,
 )
 from classes.trajectory import Trajectory
 from solvers.continuous_variables_choice import (
@@ -35,7 +36,7 @@ def nmcts(
         if len(trajectory.variables["planets_sequence"]) == len(PLANETS) and (
             not trajectory.planets_sequence_is_set()
         ):
-            return trajectory, 1e30  # Invalid sequence
+            return trajectory, UNFEASIBILITY_VALUE  # Invalid sequence
         else:
             # print(trajectory.variables["planets_sequence"])
             trajectory.set_variables_bounds()
@@ -45,6 +46,7 @@ def nmcts(
             input_values = deepcopy(continuous_variables_parameters)
             input_values["planets_sequence"] = variables["planets_sequence"]
             input_values["bounds"] = trajectory.bounds
+            input_values["values_sequence"] = list()
             (
                 variables["departure_epoch"],
                 variables["time_of_flights_list"],
@@ -84,11 +86,11 @@ if __name__ == "__main__":
     trajectory.instantiate("Earth", "Jupiter")
     # for sampling_function in ["cnrpa"]: #["uniform", "gaussian_cma_es", "cnmcts"]:
     continuous_variables_parameters = {
-        "sampling_function": "cgnrpa",
+        "sampling_function": "crbnmcts",
         "n_iterations": 500,  # for uniform and gaussian sampling
-        "level": 1,  # for cNMCTS, cNRPA and derivatives
-        "bandwidth": 25,  # for cNMCTS
-        "n_policies": 2000,  # for cNRPA and derivatives
+        "level": 2,  # for cNMCTS, cNRPA and derivatives
+        "bandwidth": 100,  # for cNMCTS
+        "n_policies": 4000,  # for cNRPA and derivatives
         "multiple_values_policy": True,  # for cNRPA and derivatives
         "learning_rate": 0.01,  # for cNRPA and derivatives
         "tau": 20,

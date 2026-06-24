@@ -2,7 +2,7 @@
 Implements Continuous Nested Rollout Policy for continuous variables' values choice.
 We will be implementing the Gaussian Kernel based variant
 Here, the values sequence is represented as follows:
-values_sequence = [departure_epoch, (time_of_flight_0, radius_0, angle_0), ..., (time_of_flight_(n-1), radius_(n-1), angle_(n-1), time_of_flight_n]
+values_sequence = [departure_epoch, time_of_flight_0, ..., time_of_flight_n]
 
 Values stored in the policy will be normalized between 0 and 1 to account for the huge differences in dimensions
 
@@ -94,7 +94,9 @@ def policy_playout(
                         weights /= np.sum(weights)
                         chosen_value = truncate(
                             denormalize(
-                                RANDOM_GENERATOR.normal(weights @ np.array(values).T, std_factor),
+                                RANDOM_GENERATOR.normal(
+                                    weights @ np.array(values).T, std_factor
+                                ),
                                 low_bound,
                                 high_bound,
                             ),
@@ -120,7 +122,10 @@ def policy_playout(
                 arrival_velocity = np.array(lambert_leg.v1[0])
                 states_sequence.append(
                     normalize(
-                        arrival_velocity, np.zeros(np.shape(arrival_velocity)), VELOCITY_NORMALIZING_FACTOR * np.ones(np.shape(arrival_velocity))
+                        arrival_velocity,
+                        np.zeros(np.shape(arrival_velocity)),
+                        VELOCITY_NORMALIZING_FACTOR
+                        * np.ones(np.shape(arrival_velocity)),
                     )
                 )
 

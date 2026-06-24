@@ -3,6 +3,7 @@ Implements global function to return values vector
 """
 
 from solvers.continuous_variables_choice.cnmcts import cnmcts
+from solvers.continuous_variables_choice.crbnmcts import crbnmcts
 from solvers.continuous_variables_choice.cnrpa import cnrpa
 from solvers.continuous_variables_choice.cgnrpa import cgnrpa
 from solvers.continuous_variables_choice.one_shot_vector_choice import (
@@ -17,6 +18,7 @@ SAMPLING_FUNCTIONS = {
     "cnmcts": cnmcts,
     "cnrpa": cnrpa,
     "cgnrpa": cgnrpa,
+    "crbnmcts": crbnmcts,
 }
 
 

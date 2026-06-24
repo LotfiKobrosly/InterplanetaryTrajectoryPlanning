@@ -5,7 +5,13 @@ Implements a class for trajectory building
 from copy import deepcopy
 import numpy as np
 import pykep as pk
-from utils.constants import PLANETS, POLICY_ALGORITHMS, VARIABLES_BOUNDS, TOF_BOUNDS, UNFEASIBILITY_VALUE
+from utils.constants import (
+    PLANETS,
+    POLICY_ALGORITHMS,
+    VARIABLES_BOUNDS,
+    TOF_BOUNDS,
+    UNFEASIBILITY_VALUE,
+)
 from utils.trajectory_evaluation import evaluate_mga_trajectory
 
 
