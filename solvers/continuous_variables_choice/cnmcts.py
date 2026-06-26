@@ -5,8 +5,8 @@ values_sequence = [departure_epoch, time_of_flight_0, ..., time_of_flight_n]
 """
 
 import numpy as np
-from utils.trajectory_evaluation import evaluate_mga_trajectory
-from utils.constants import RANDOM_GENERATOR
+import pykep as pk
+from utils.constants import RANDOM_GENERATOR, DV_LAUNCHER
 from solvers.continuous_variables_choice.values_separators import (
     separate_values,
 )
@@ -48,11 +48,13 @@ def cnmcts(
                     best_sequence = new_values_sequence
                     best_result = result
             values_sequence.append(best_sequence[len(values_sequence)])
-
+    evaluator = pk.trajopt.mga(
+        [pk.planet(pk.udpla.jpl_lp(planet)) for planet in planets_sequence],
+        list(bounds[0]),
+        [list(element) for element in bounds[1:]],
+        vinf=DV_LAUNCHER
+    )
     return (
         values_sequence,
-        evaluate_mga_trajectory(
-            planets_sequence,
-            *separate_values(values_sequence),
-        )[0],
+        evaluator.fitness(values_sequence)[0]
     )

@@ -9,11 +9,10 @@ In this file, the values sequence is represented as follows:
 
 import warnings
 import numpy as np
+import pykep as pk
 import cma
-from utils.trajectory_evaluation import evaluate_mga_trajectory
 from utils.basic_functions import normalize, denormalize
-from utils.constants import RANDOM_GENERATOR
-from solvers.continuous_variables_choice.values_separators import separate_values
+from utils.constants import RANDOM_GENERATOR, DV_LAUNCHER
 
 warnings.filterwarnings("ignore")
 
@@ -26,6 +25,13 @@ def uniform_variables_values_vector(
     """
     best_vector = None
     best_value = 1e30
+    planets_sequence = [pk.planet(pk.udpla.jpl_lp(planet)) for planet in planets_sequence]
+    evaluator = pk.trajopt.mga(
+        planets_sequence,
+        list(bounds[0]),
+        [list(element) for element in bounds[1:]],
+        vinf=DV_LAUNCHER
+    )
     for iteration in range(n_iterations):
         # Imposing a strict while loop here without the max iterations condition might
         # result in an endless loop, given the pure random aspect of this algorithm
@@ -33,7 +39,7 @@ def uniform_variables_values_vector(
             np.array([bound[0] for bound in bounds]),
             np.array([bound[1] for bound in bounds]),
         )
-        result = evaluate_mga_trajectory(planets_sequence, *separate_values(vector))
+        result = evaluator.fitness(vector)
         # print(result)
 
         if not (result is None) and (result[0] < best_value):
@@ -43,7 +49,7 @@ def uniform_variables_values_vector(
         best_vector = vector
     return (
         best_vector,
-        evaluate_mga_trajectory(planets_sequence, *separate_values(best_vector))[0],
+        evaluator.fitness(best_vector)[0],
     )
 
 
@@ -55,12 +61,16 @@ def gaussian_variables_values_vector(
     """
     lower_bounds = np.array([bound[0] for bound in bounds])
     upper_bounds = np.array([bound[1] for bound in bounds])
+    planets_sequence = [pk.planet(pk.udpla.jpl_lp(planet)) for planet in planets_sequence]
+    evaluator = pk.trajopt.mga(
+        planets_sequence,
+        list(bounds[0]),
+        [list(element) for element in bounds[1:]],
+        vinf=DV_LAUNCHER
+    )
 
     def objective_function(normalized_vector: np.ndarray):
-        result = evaluate_mga_trajectory(
-            planets_sequence,
-            *separate_values(denormalize(normalized_vector, lower_bounds, upper_bounds))
-        )
+        result = evaluator.fitness(denormalize(normalized_vector, lower_bounds, upper_bounds))
         if result is None:
             return 1e10  # penalty for invalid trajectory
 
@@ -94,5 +104,84 @@ def gaussian_variables_values_vector(
     best_vector = denormalize(result_normalized, lower_bounds, upper_bounds)
     return (
         best_vector,
-        evaluate_mga_trajectory(planets_sequence, *separate_values(best_vector))[0],
+        evaluator.fitness(best_vector)[0],
     )
+
+def crossover(parent_1: list, parent_2: list):
+    child = list()
+    for counter in range(len(parent_1)):
+        if RANDOM_GENERATOR.uniform(0, 1) > 0.5:
+            child.append(parent_1[counter])
+        else:
+            child.append(parent_2[counter])
+    return child
+
+def mutation(chromosome: list, probability: float, perturbation: float):
+    for element_index, element in enumerate(chromosome):
+        if RANDOM_GENERATOR.uniform(0, 1) < probability:
+            chromosome[element_index] = RANDOM_GENERATOR.uniform(1 - perturbation, 1 + perturbation) * element
+    return chromosome
+
+def genetic_algorithm(
+    planets_sequence: list = None,
+    population: list = None,
+    bounds: list = None,
+    n_generations: int = 1000,
+    population_size: int = 1000,
+    mutation_probability: float = 0.1,
+    mutation_effect: float = 0.2,
+    *args,
+    **kwargs,
+):
+    planets_sequence = [pk.planet(pk.udpla.jpl_lp(planet)) for planet in planets_sequence]
+    evaluator = pk.trajopt.mga(
+        planets_sequence,
+        list(bounds[0]),
+        [list(element) for element in bounds[1:]],
+        vinf=DV_LAUNCHER
+    )
+    chromosome_length = len(planets_sequence)
+    low_bound = [bound[0] for bound in bounds]
+    high_bound = [bound[1] for bound in bounds]
+    
+    # Initialization
+    if population is None:
+        population = RANDOM_GENERATOR.uniform(
+            low_bound,
+            high_bound,
+            (population_size, chromosome_length),
+        )
+
+    for _ in range(n_generations):
+        # Build new generation
+        RANDOM_GENERATOR.shuffle(population)
+
+        ## Crossovers
+        descendants = [
+            crossover(population[counter], population[counter + 1])
+            for counter in range(0, population_size, 2)
+        ]
+
+        gene_pool = np.concatenate([population, descendants])
+
+        ## Mutations
+        for sequence_index, sequence in enumerate(gene_pool):
+            if RANDOM_GENERATOR.uniform(0, 1) < mutation_probability:
+                gene_pool[sequence_index] = mutation(sequence, mutation_probability, mutation_effect)
+
+        # Fitness evaluation
+        fitness = [
+            evaluator.fitness(sequence)[0]
+            for sequence in gene_pool
+        ]
+
+        # Selection
+        indices = np.argsort(fitness)
+        gene_pool = np.array(gene_pool)[indices]
+        population = gene_pool[:population_size]
+
+    return (
+        population[0],
+        evaluator.fitness(population[0])[0]
+    )
+

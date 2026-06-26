@@ -22,16 +22,13 @@ dimension) and we sample around it using a normal distribution (parameters are t
 from copy import deepcopy
 import numpy as np
 import pykep as pk
-from utils.trajectory_evaluation import evaluate_mga_trajectory
 from utils.constants import (
     GAUSSIAN_KERNEL_THRESHOLD,
     RANDOM_GENERATOR,
     VELOCITY_NORMALIZING_FACTOR,
+    DV_LAUNCHER,
 )
 from utils.basic_functions import normalize, denormalize, code, truncate
-from solvers.continuous_variables_choice.values_separators import (
-    separate_values,
-)
 from utils.gaussian_kernel import (
     GaussianKernel,
 )
@@ -143,19 +140,6 @@ def policy_playout(
             else:
                 chosen_value = RANDOM_GENERATOR.uniform(low_bound, high_bound)
         values_sequence.append(chosen_value)
-    # assert (
-    #     (len(values_sequence) == len(states_sequence) + 1) and multiple_values_policy
-    # ) or not multiple_values_policy, (
-    #     "Error in states_sequence and values_sequence generation: "
-    #     + "values_sequence size: "
-    #     + str(len(values_sequence))
-    #     + ", VS states_sequence size: "
-    #     + str(len(states_sequence))
-    #     + ". Current lists: \n"
-    #     + str(values_sequence)
-    #     + "\n"
-    #     + str(states_sequence)
-    # )
     return values_sequence
 
 
@@ -236,7 +220,7 @@ def adapt_policy(
     return policy
 
 
-def cnrpa(
+def run_cnrpa(
     values_sequence: list = list(),
     policy: dict = dict(),
     multiple_values_policy: bool = False,
@@ -252,6 +236,13 @@ def cnrpa(
 ):
     assert not (planets_sequence is None), "planets_sequence is None"
     assert not (bounds is None), "bounds is None"
+    sequence = [pk.planet(pk.udpla.jpl_lp(planet)) for planet in planets_sequence]
+    evaluator = pk.trajopt.mga(
+        sequence,
+        list(bounds[0]),
+        [list(element) for element in bounds[1:]],
+        vinf=DV_LAUNCHER
+    )
     if level == 0:
 
         values_sequence = policy_playout(
@@ -262,13 +253,13 @@ def cnrpa(
             states_sequence=states_sequence,
             std_factor=0.01 + 0.5 * np.exp(-10 * current_iteration / (n_policies)),
         )
+        
         return (
             values_sequence,
-            evaluate_mga_trajectory(
-                planets_sequence,
-                *separate_values(values_sequence),
-            )[0],
+            states_sequence,
+            evaluator.fitness(values_sequence)[0],
         )
+
     else:
         best_delta_v = np.inf
         current_policy = deepcopy(policy)
@@ -276,7 +267,8 @@ def cnrpa(
         best_states_sequence = None
         for current_iteration in range(n_policies):
             states_sequence = list()
-            values_sequence, total_delta_v = cnrpa(
+            values_sequence = list()
+            values_sequence, states_sequence, total_delta_v = run_cnrpa(
                 policy=current_policy,
                 multiple_values_policy=multiple_values_policy,
                 level=level - 1,
@@ -300,8 +292,34 @@ def cnrpa(
             )
         return (
             best_values_sequence,
-            evaluate_mga_trajectory(
-                planets_sequence,
-                *separate_values(best_values_sequence),
-            )[0],
+            best_states_sequence,
+            evaluator.fitness(best_values_sequence)[0],
         )
+
+def cnrpa(
+    values_sequence: list = list(),
+    policy: dict = dict(),
+    multiple_values_policy: bool = False,
+    level: int = 0,
+    n_policies: int = 10,
+    bounds: list = None,
+    planets_sequence: list = None,
+    current_iteration: int = 0,
+    states_sequence: list = list(),
+    learning_rate: float = 0.01,
+    *args,
+    **kwargs,
+):
+    result = run_cnrpa(
+        values_sequence,
+        policy,
+        multiple_values_policy,
+        level,
+        n_policies,
+        bounds,
+        planets_sequence,
+        0,
+        list(),
+        learning_rate,
+    )
+    return result[0], result[2]

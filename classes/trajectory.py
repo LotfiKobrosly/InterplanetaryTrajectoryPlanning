@@ -20,8 +20,7 @@ class Trajectory:
     def __init__(self):
         self.variables = {
             "planets_sequence": list(),  # Length msut be >= 2. If 2, a direct flight to goal is considered
-            "departure_epoch": None,
-            "time_of_flights_list": list(),  # Length must be len(plent_sequence) - 1
+            "values_sequence": list(),  # Length must be len(plent_sequence)
         }
         self.start = None
         self.goal = None
@@ -53,9 +52,8 @@ class Trajectory:
         self.variables = {
             "planets_sequence": [
                 self.start
-            ],  # Length msut be >= 2. If 2, a direct flight to goal is considered
-            "departure_epoch": None,
-            "time_of_flights_list": list(),  # Length must be len(plent_sequence) - 1
+            ],
+            "values_sequence": list(),
         }
         self.define_planets_pool()
 
@@ -67,8 +65,7 @@ class Trajectory:
     def is_terminal(self):
         return (
             self.planets_sequence_is_set()
-            and not (self.variables["departure_epoch"] is None)
-            and len(self.variables["time_of_flights_list"])
+            and len(self.variables["values_sequence"])
             == len(self.variables["planets_sequence"] - 1)
         )
 
@@ -80,9 +77,7 @@ class Trajectory:
             [list(element) for element in self.bounds[1:]],
             vinf=DV_LAUNCHER
         )
-        values_sequence = [self.variables["departure_epoch"]]
-        values_sequence.extend(self.variables["time_of_flights_list"])
-        self.mga_results = evaluator.fitness(values_sequence)
+        self.mga_results = evaluator.fitness(self.variables["values_sequence"])
         if self.mga_results is None:
             return UNFEASIBILITY_VALUE  # Invalid sequence
         return self.mga_results[0]

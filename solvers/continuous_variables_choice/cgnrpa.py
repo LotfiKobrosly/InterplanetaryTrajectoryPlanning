@@ -15,7 +15,6 @@ Policy adaptation will then occur in the same manner as in cNRPA
 from copy import deepcopy
 import numpy as np
 import pykep as pk
-from utils.trajectory_evaluation import evaluate_mga_trajectory
 from utils.constants import (
     GAUSSIAN_KERNEL_THRESHOLD,
     RANDOM_GENERATOR,
@@ -23,11 +22,9 @@ from utils.constants import (
     UNFEASIBILITY_VALUE,
     N_CANDIDATES,
     SAFE_RADIUS_FACTOR,
+    DV_LAUNCHER,
 )
 from utils.basic_functions import normalize, denormalize, code, truncate
-from solvers.continuous_variables_choice.values_separators import (
-    separate_values,
-)
 from solvers.continuous_variables_choice.cnrpa import adapt_policy
 from utils.gaussian_kernel import (
     GaussianKernel,
@@ -236,7 +233,7 @@ def biased_policy_playout(
     return values_sequence
 
 
-def cgnrpa(
+def run_cgnrpa(
     values_sequence: list = list(),
     policy: dict = dict(),
     multiple_values_policy: bool = False,
@@ -253,6 +250,13 @@ def cgnrpa(
 ):
     assert not (planets_sequence is None), "planets_sequence is None"
     assert not (bounds is None), "bounds is None"
+    sequence = [pk.planet(pk.udpla.jpl_lp(planet)) for planet in planets_sequence]
+    evaluator = pk.trajopt.mga(
+        sequence,
+        list(bounds[0]),
+        [list(element) for element in bounds[1:]],
+        vinf=DV_LAUNCHER
+    )
     if level == 0:
 
         values_sequence = biased_policy_playout(
@@ -266,10 +270,8 @@ def cgnrpa(
         )
         return (
             values_sequence,
-            evaluate_mga_trajectory(
-                planets_sequence,
-                *separate_values(values_sequence),
-            )[0],
+            states_sequence,
+            evaluator.fitness(values_sequence)[0],
         )
     else:
         best_delta_v = np.inf
@@ -278,7 +280,7 @@ def cgnrpa(
         best_states_sequence = None
         for current_iteration in range(n_policies):
             states_sequence = list()
-            values_sequence, total_delta_v = cgnrpa(
+            values_sequence, states_sequence, total_delta_v = run_cgnrpa(
                 policy=current_policy,
                 multiple_values_policy=multiple_values_policy,
                 level=level - 1,
@@ -303,8 +305,36 @@ def cgnrpa(
             )
         return (
             best_values_sequence,
-            evaluate_mga_trajectory(
-                planets_sequence,
-                *separate_values(best_values_sequence),
-            )[0],
+            best_states_sequence,
+            evaluator.fitness(best_values_sequence)[0],
         )
+
+def cgnrpa(
+    values_sequence: list = list(),
+    policy: dict = dict(),
+    multiple_values_policy: bool = False,
+    level: int = 0,
+    n_policies: int = 10,
+    bounds: list = None,
+    planets_sequence: list = None,
+    current_iteration: int = 0,
+    states_sequence: list = list(),
+    learning_rate: float = 0.01,
+    tau: float = 10,
+    *args,
+    **kwargs,
+):
+    result = run_cgnrpa(
+        values_sequence,
+        policy,
+        multiple_values_policy,
+        level,
+        n_policies,
+        bounds,
+        planets_sequence,
+        0,
+        list(),
+        learning_rate,
+        tau,
+    )
+    return result[0], result[2]

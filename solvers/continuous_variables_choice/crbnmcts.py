@@ -7,11 +7,8 @@ The reward function chooses the smallest value of the local delta V, similarly t
 """
 
 import numpy as np
-from utils.trajectory_evaluation import evaluate_mga_trajectory
-from utils.constants import RANDOM_GENERATOR
-from solvers.continuous_variables_choice.values_separators import (
-    separate_values,
-)
+import pykep as pk
+from utils.constants import RANDOM_GENERATOR, DV_LAUNCHER
 
 
 def crbnmcts(
@@ -62,10 +59,14 @@ def crbnmcts(
                     best_result = result
             values_sequence.append(best_value)
 
+    evaluator = pk.trajopt.mga(
+        [pk.planet(pk.udpla.jpl_lp(planet)) for planet in planets_sequence[:len(values_sequence)]],
+        list(bounds[0]),
+        [list(element) for element in bounds[1:len(values_sequence)]],
+        vinf=DV_LAUNCHER
+    )
     return (
         values_sequence,
-        evaluate_mga_trajectory(
-            planets_sequence[: len(values_sequence)],
-            *separate_values(values_sequence),
-        )[0],
+        evaluator.fitness(values_sequence)[0]
     )
+
