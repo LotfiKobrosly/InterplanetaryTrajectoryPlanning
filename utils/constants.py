@@ -7,10 +7,6 @@ RANDOM_SEED = 1
 RANDOM_GENERATOR = np.random.default_rng(seed=RANDOM_SEED)
 GAUSSIAN_KERNEL_THRESHOLD = 0.05
 
-# Universal gravitational constant
-GRAVITY_CONSTANT = 6.67430e-11
-EARTH_GRAVITY_CONSTANT = 9.80665
-
 # Solar System Planets compatible with JPL data in pykep
 PLANETS = [
     "Mercury",
@@ -51,35 +47,6 @@ TOF_BOUNDS = {
     ("Uranus", "Neptune"): (2000, 8000),
 }
 
-# Bodies' masses in kilograms (Wikipedia)
-MASSES = {
-    "Sun": 1.9884e30,
-    # Planets
-    "Mercury": 3.301e23,
-    "Venus": 4.867e24,
-    "Earth": 5.972e24,
-    "Mars": 6.417e23,
-    "Jupiter": 1.899e27,
-    "Saturn": 5.685e26,
-    "Uranus": 8.682e25,
-    "Neptune": 1.024e26,
-    # Dwarf planets and asteroids
-    "Pluto": 1.471e22,
-    "Ceres": 9.3e20,
-    "Vesta": 2.6e20,
-    "Pallas": 2.0e20,
-    # Planets' satellites
-    "Moon": 7.348e22,
-    "Io": 8.93e22,
-    "Europa": 4.80e22,
-    "Ganymede": 1.48e23,
-    "Callisto": 1.08e23,
-    "Titan": 1.35e23,
-    "Titania": 3.52e21,
-    "Oberon": 3.01e21,
-    "Triton": 2.14e22,
-}
-
 # Heliocentric indices
 INDICES = {
     "Sun": (0, 0),
@@ -100,9 +67,9 @@ ISP = 3000
 
 # Variables bounds
 VARIABLES_BOUNDS = {
-    "departure_epoch": (1000, 2000),  # departure window (mjd2000)
-    "departure_velocity": (0, 10000),  # m/s, generous launcher capability
+    "departure_epoch": (100, 2000),  # departure window (mjd2000)
 }
+DV_LAUNCHER = 10000 # m/s, generous launcher capability
 SAFE_RADIUS_FACTOR = 1.05
 UNFEASIBILITY_VALUE = 1e20
 VELOCITY_NORMALIZING_FACTOR = 40000
@@ -112,6 +79,7 @@ POLICY_ALGORITHMS = ["cnrpa", "cgnrpa", "nrpa", "gnrpa"]
 SAMPLING_FUNCTIONS = [
     "uniform",
     "gaussian_cma_es",
+    "genetic",
     "cnmcts",
     "crbnmcts",
     "cnrpa",

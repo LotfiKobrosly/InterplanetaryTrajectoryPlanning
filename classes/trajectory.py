@@ -11,8 +11,8 @@ from utils.constants import (
     VARIABLES_BOUNDS,
     TOF_BOUNDS,
     UNFEASIBILITY_VALUE,
+    DV_LAUNCHER,
 )
-from utils.trajectory_evaluation import evaluate_mga_trajectory
 
 
 class Trajectory:
@@ -73,7 +73,16 @@ class Trajectory:
         )
 
     def evaluate_mga(self):
-        self.mga_results = evaluate_mga_trajectory(**self.variables)
+        planets_sequence = [pk.planet(pk.udpla.jpl_lp(planet)) for planet in self.variables["planets_sequence"]]
+        evaluator = pk.trajopt.mga(
+            planets_sequence,
+            list(self.bounds[0]),
+            [list(element) for element in self.bounds[1:]],
+            vinf=DV_LAUNCHER
+        )
+        values_sequence = [self.variables["departure_epoch"]]
+        values_sequence.extend(self.variables["time_of_flights_list"])
+        self.mga_results = evaluator.fitness(values_sequence)
         if self.mga_results is None:
             return UNFEASIBILITY_VALUE  # Invalid sequence
         return self.mga_results[0]
