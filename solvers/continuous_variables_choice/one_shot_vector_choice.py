@@ -10,6 +10,7 @@ In this file, the values sequence is represented as follows:
 import warnings
 import numpy as np
 import pykep as pk
+import pygmo as pg
 import cma
 from utils.basic_functions import normalize, denormalize
 from utils.constants import RANDOM_GENERATOR, DV_LAUNCHER
@@ -107,20 +108,69 @@ def gaussian_variables_values_vector(
         evaluator.fitness(best_vector)[0],
     )
 
-def crossover(parent_1: list, parent_2: list):
-    child = list()
-    for counter in range(len(parent_1)):
-        if RANDOM_GENERATOR.uniform(0, 1) > 0.5:
-            child.append(parent_1[counter])
-        else:
-            child.append(parent_2[counter])
-    return child
+def cmaes_pygmo(
+    bounds: list, planets_sequence: list, n_iterations: int = 1500, *args, **kwargs
+):
+    """
+    Use the PyGMO built-in Covariance Matrix Adaptation Evolution Strategy
+    """
+    planets_sequence = [pk.planet(pk.udpla.jpl_lp(planet)) for planet in planets_sequence]
+    evaluator = pk.trajopt.mga(
+        planets_sequence,
+        list(bounds[0]),
+        [list(element) for element in bounds[1:]],
+        vinf=DV_LAUNCHER
+    )
 
-def mutation(chromosome: list, probability: float, perturbation: float):
-    for element_index, element in enumerate(chromosome):
-        if RANDOM_GENERATOR.uniform(0, 1) < probability:
-            chromosome[element_index] = RANDOM_GENERATOR.uniform(1 - perturbation, 1 + perturbation) * element
-    return chromosome
+    # Setting up
+    problem = pg.problem(evaluator)
+    solver = pg.cmaes(n_iterations, force_bounds=True, sigma0=0.5, ftol=1e-4)
+    algorithm = pg.algorithm(solver)
+    result = list()
+
+    # Running algorithm
+    for i in range(10):
+        pop = pg.population(problem, 20)
+        pop = algorithm.evolve(pop)
+        result.append([pop.champion_f, pop.champion_x])
+        # print(i, pop.champion_f[0], flush=True)
+        
+    best_value = sorted(result, key =  lambda x: x[0][0])[0][0][0]
+    best_x = sorted(result, key =  lambda x: x[0][0])[0][1]
+
+    return best_x, best_value
+
+def sade_pygmo(
+    bounds: list, planets_sequence: list, n_iterations: int = 2500, *args, **kwargs
+):
+    """
+    Use the PyGMO built-in Self Adaptive Differential Evolution
+    """
+    planets_sequence = [pk.planet(pk.udpla.jpl_lp(planet)) for planet in planets_sequence]
+    evaluator = pk.trajopt.mga(
+        planets_sequence,
+        list(bounds[0]),
+        [list(element) for element in bounds[1:]],
+        vinf=DV_LAUNCHER
+    )
+    # Setting up
+    problem = pg.problem(evaluator)
+    solver = pg.sade(n_iterations, ftol=1e-4, xtol=1e-4)
+    algorithm = pg.algorithm(solver)
+    result = list()
+
+    # Running algorithm
+    for i in range(10):
+        pop = pg.population(problem, 20)
+        pop = algorithm.evolve(pop)
+        result.append([pop.champion_f, pop.champion_x])
+        # print(i, pop.champion_f[0], flush=True)
+        
+    best_value = sorted(result, key =  lambda x: x[0][0])[0][0][0]
+    best_x = sorted(result, key =  lambda x: x[0][0])[0][1]
+
+    return best_x, best_value
+
 
 def genetic_algorithm(
     planets_sequence: list = None,
@@ -133,6 +183,22 @@ def genetic_algorithm(
     *args,
     **kwargs,
 ):
+
+    def crossover(parent_1: list, parent_2: list):
+        child = list()
+        for counter in range(len(parent_1)):
+            if RANDOM_GENERATOR.uniform(0, 1) > 0.5:
+                child.append(parent_1[counter])
+            else:
+                child.append(parent_2[counter])
+        return child
+
+    def mutation(chromosome: list, probability: float, perturbation: float):
+        for element_index, element in enumerate(chromosome):
+            if RANDOM_GENERATOR.uniform(0, 1) < probability:
+                chromosome[element_index] = RANDOM_GENERATOR.uniform(1 - perturbation, 1 + perturbation) * element
+        return chromosome
+
     planets_sequence = [pk.planet(pk.udpla.jpl_lp(planet)) for planet in planets_sequence]
     evaluator = pk.trajopt.mga(
         planets_sequence,
@@ -184,4 +250,3 @@ def genetic_algorithm(
         population[0],
         evaluator.fitness(population[0])[0]
     )
-

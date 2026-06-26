@@ -10,11 +10,15 @@ from solvers.continuous_variables_choice.one_shot_vector_choice import (
     uniform_variables_values_vector,
     gaussian_variables_values_vector,
     genetic_algorithm,
+    cmaes_pygmo,
+    sade_pygmo,
 )
 
 SAMPLING_FUNCTIONS = {
     "uniform": uniform_variables_values_vector,
     "gaussian_cma_es": gaussian_variables_values_vector,
+    "cmaes": cmaes_pygmo,
+    "sade": sade_pygmo,
     "cnmcts": cnmcts,
     "cnrpa": cnrpa,
     "cgnrpa": cgnrpa,

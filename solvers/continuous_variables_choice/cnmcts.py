@@ -7,9 +7,6 @@ values_sequence = [departure_epoch, time_of_flight_0, ..., time_of_flight_n]
 import numpy as np
 import pykep as pk
 from utils.constants import RANDOM_GENERATOR, DV_LAUNCHER
-from solvers.continuous_variables_choice.values_separators import (
-    separate_values,
-)
 
 
 def cnmcts(
