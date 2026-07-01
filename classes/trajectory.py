@@ -5,6 +5,7 @@ Implements a class for trajectory building
 from copy import deepcopy
 import numpy as np
 import pykep as pk
+import matplotlib.pyplot as plt
 from utils.constants import (
     PLANETS,
     POLICY_ALGORITHMS,
@@ -24,6 +25,7 @@ class Trajectory:
         }
         self.start = None
         self.goal = None
+        self.evaluator = None
 
     def set_start_planet(self, planet="Earth"):
         assert planet in PLANETS, "Given planet not in the provided list: " + str(
@@ -50,12 +52,11 @@ class Trajectory:
 
     def reinitialize(self):
         self.variables = {
-            "planets_sequence": [
-                self.start
-            ],
+            "planets_sequence": [self.start],
             "values_sequence": list(),
         }
         self.define_planets_pool()
+        self.evaluator = None
 
     def planets_sequence_is_set(self):
         return self.variables["planets_sequence"] and (
@@ -63,21 +64,23 @@ class Trajectory:
         )
 
     def is_terminal(self):
-        return (
-            self.planets_sequence_is_set()
-            and len(self.variables["values_sequence"])
-            == len(self.variables["planets_sequence"] - 1)
-        )
+        return self.planets_sequence_is_set() and len(
+            self.variables["values_sequence"]
+        ) == len(self.variables["planets_sequence"] - 1)
 
     def evaluate_mga(self):
-        planets_sequence = [pk.planet(pk.udpla.jpl_lp(planet)) for planet in self.variables["planets_sequence"]]
-        evaluator = pk.trajopt.mga(
-            planets_sequence,
-            list(self.bounds[0]),
-            [list(element) for element in self.bounds[1:]],
-            vinf=DV_LAUNCHER
-        )
-        self.mga_results = evaluator.fitness(self.variables["values_sequence"])
+        if self.evaluator is None:
+            planets_sequence = [
+                pk.planet(pk.udpla.jpl_lp(planet))
+                for planet in self.variables["planets_sequence"]
+            ]
+            self.evaluator = pk.trajopt.mga(
+                planets_sequence,
+                list(self.bounds[0]),
+                [list(element) for element in self.bounds[1:]],
+                vinf=DV_LAUNCHER,
+            )
+        self.mga_results = self.evaluator.fitness(self.variables["values_sequence"])
         if self.mga_results is None:
             return UNFEASIBILITY_VALUE  # Invalid sequence
         return self.mga_results[0]
@@ -109,3 +112,24 @@ class Trajectory:
             bounds.append(TOF_BOUNDS[key])
 
         self.bounds = bounds
+
+    def plot_trajectory(self):
+        if self.evaluator is None:
+            planets_sequence = [
+                pk.planet(pk.udpla.jpl_lp(planet))
+                for planet in self.variables["planets_sequence"]
+            ]
+            self.evaluator = pk.trajopt.mga(
+                planets_sequence,
+                list(self.bounds[0]),
+                [list(element) for element in self.bounds[1:]],
+                vinf=DV_LAUNCHER,
+            )
+        axe = self.evaluator.plot(self.variables["values_sequence"])
+        axe.view_init(90, 0)
+        axe.axis("off")
+        axe.set_title(
+            r"$\Delta$V = "
+            + f"{self.evaluator.fitness(self.variables["values_sequence"])[0] / 1000:.3f} km/s"
+        )
+        plt.show()

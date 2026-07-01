@@ -19,8 +19,25 @@ PLANETS = [
     "Neptune",
 ]
 
+ORBITAL_PERIODS = {
+    "Mercury": 87.97,
+    "Venus": 224.7,
+    "Earth": 365.26,
+    "Mars": 686.98,
+    "Jupiter": 4332.82,
+    "Saturn": 10755.7,
+    "Uranus": 30687.15,
+    "Neptune": 60190.03,
+}
+
 # Times of flight bounds in days from Claude estimations
 TOF_BOUNDS = {
+    ("Mercury", "Mercury"): (
+        ORBITAL_PERIODS["Mercury"] / 4,
+        ORBITAL_PERIODS["Mercury"] * 4,
+    ),
+    ("Venus", "Venus"): (ORBITAL_PERIODS["Venus"] / 4, ORBITAL_PERIODS["Venus"] * 4),
+    ("Earth", "Earth"): (ORBITAL_PERIODS["Earth"] / 4, ORBITAL_PERIODS["Earth"] * 4),
     ("Mercury", "Venus"): (60, 250),
     ("Mercury", "Earth"): (90, 350),
     ("Mercury", "Mars"): (150, 500),
@@ -69,7 +86,7 @@ ISP = 3000
 VARIABLES_BOUNDS = {
     "departure_epoch": (100, 2000),  # departure window (mjd2000)
 }
-DV_LAUNCHER = 10000 # m/s, generous launcher capability
+DV_LAUNCHER = 10000  # m/s, generous launcher capability
 SAFE_RADIUS_FACTOR = 1.05
 UNFEASIBILITY_VALUE = 1e20
 VELOCITY_NORMALIZING_FACTOR = 40000
@@ -77,6 +94,13 @@ VELOCITY_NORMALIZING_FACTOR = 40000
 # Algorithms
 POLICY_ALGORITHMS = ["cnrpa", "cgnrpa", "nrpa", "gnrpa"]
 SAMPLING_FUNCTIONS = [
+    "sade",
+    "cmaes",
+    "sga",
+    "simulatedd_annealing",
+    "pso",
+    "gaco",
+    "bee_colony",
     "uniform",
     "gaussian_cma_es",
     "genetic",

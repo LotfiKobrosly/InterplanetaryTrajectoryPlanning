@@ -3,6 +3,7 @@ Implementing basic functions
 """
 
 import numpy as np
+from utils.constants import RANDOM_GENERATOR
 
 
 def normalize(x, low, high):
@@ -42,3 +43,33 @@ def truncate(value, min_value, max_value):
         value = np.where(value > min_value, value, min_value)
         value = np.where(value < max_value, value, max_value)
         return value
+
+
+def fit_gaussian_from_density(x, density_values):
+    """
+    From Claude LLM
+    x               : equally spaced points
+    density_values  : unnormalized density/probability values at each point
+    """
+    x = np.array(x, dtype=float)
+    p = np.array(density_values, dtype=float)
+
+    # Normalize to a proper probability mass function
+    p_norm = p / p.sum()
+
+    mu = np.sum(p_norm * x)
+    var = np.sum(p_norm * (x - mu) ** 2)
+    sigma = np.sqrt(var)
+
+    return mu, sigma
+
+
+def sample_mixture_1d(n_samples, mu1, sigma1, mu2, sigma2, weight1=0.5):
+    # From Claude LLM
+    component = RANDOM_GENERATOR.uniform(0, 1, n_samples) < weight1
+    samples = np.where(
+        component,
+        RANDOM_GENERATOR.normal(mu1, sigma1, n_samples),
+        RANDOM_GENERATOR.normal(mu2, sigma2, n_samples),
+    )
+    return samples
