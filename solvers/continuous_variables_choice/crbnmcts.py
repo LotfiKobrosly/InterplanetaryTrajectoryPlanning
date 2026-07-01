@@ -60,13 +60,12 @@ def crbnmcts(
             values_sequence.append(best_value)
 
     evaluator = pk.trajopt.mga(
-        [pk.planet(pk.udpla.jpl_lp(planet)) for planet in planets_sequence[:len(values_sequence)]],
+        [
+            pk.planet(pk.udpla.jpl_lp(planet))
+            for planet in planets_sequence[: len(values_sequence)]
+        ],
         list(bounds[0]),
-        [list(element) for element in bounds[1:len(values_sequence)]],
-        vinf=DV_LAUNCHER
+        [list(element) for element in bounds[1 : len(values_sequence)]],
+        vinf=DV_LAUNCHER,
     )
-    return (
-        values_sequence,
-        evaluator.fitness(values_sequence)[0]
-    )
-
+    return (values_sequence, evaluator.fitness(values_sequence)[0])

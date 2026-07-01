@@ -241,7 +241,7 @@ def run_cnrpa(
         sequence,
         list(bounds[0]),
         [list(element) for element in bounds[1:]],
-        vinf=DV_LAUNCHER
+        vinf=DV_LAUNCHER,
     )
     if level == 0:
 
@@ -253,7 +253,7 @@ def run_cnrpa(
             states_sequence=states_sequence,
             std_factor=0.01 + 0.5 * np.exp(-10 * current_iteration / (n_policies)),
         )
-        
+
         return (
             values_sequence,
             states_sequence,
@@ -295,6 +295,7 @@ def run_cnrpa(
             best_states_sequence,
             evaluator.fitness(best_values_sequence)[0],
         )
+
 
 def cnrpa(
     values_sequence: list = list(),

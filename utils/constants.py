@@ -78,6 +78,7 @@ INDICES = {
     "Pluto": (0, 9),
 }
 
+
 # Spacecraft constants
 MAXIMUM_THRUST = 0.1
 ISP = 3000

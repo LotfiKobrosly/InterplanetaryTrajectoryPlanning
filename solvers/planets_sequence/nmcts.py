@@ -12,7 +12,6 @@ from utils.constants import (
     SAMPLING_FUNCTIONS,
     UNFEASIBILITY_VALUE,
 )
-from utils.trajectory_evaluation import verify_mga_output
 from classes.trajectory import Trajectory
 from solvers.continuous_variables_choice import (
     get_variables_values,
@@ -49,8 +48,7 @@ def nmcts(
             input_values["bounds"] = trajectory.bounds
             input_values["values_sequence"] = list()
             (
-                variables["departure_epoch"],
-                variables["time_of_flights_list"],
+                variables["values_sequence"],
                 delta_v,
             ) = get_variables_values(input_values)
             return trajectory, delta_v
@@ -87,24 +85,24 @@ if __name__ == "__main__":
     trajectory.instantiate("Earth", "Saturn")
     # for sampling_function in ["cnrpa"]: #["uniform", "gaussian_cma_es", "cnmcts"]:
     continuous_variables_parameters = {
-        "sampling_function": "uniform",
+        "sampling_function": "cgnrpa",
         "n_iterations": 500,  # for uniform and gaussian sampling
         "level": 1,  # for cNMCTS, cNRPA and derivatives
         "bandwidth": 100,  # for cNMCTS
         "n_policies": 1000,  # for cNRPA and derivatives
         "multiple_values_policy": True,  # for cNRPA and derivatives
         "learning_rate": 0.01,  # for cNRPA and derivatives
-        "tau": 20, # for cGNRPA and derivatives
-        "gamma": 0.2, # for cABGNRPA
-        "n_generations": 5000, # for Genetic Algorithm
-        "population_size": 100, # for Genetic Algorithm
-        "mutation_probability": 0.1, # for Genetic Algorithm
-        "mutation_effect": 0.15, # for Genetic Algorithm
+        "tau": 20,  # for cGNRPA and derivatives
+        "gamma": 0.2,  # for cABGNRPA
+        "n_generations": 5000,  # for Genetic Algorithm
+        "population_size": 100,  # for Genetic Algorithm
+        "mutation_probability": 0.1,  # for Genetic Algorithm
+        "mutation_effect": 0.15,  # for Genetic Algorithm
     }
     print("\nSampling:", continuous_variables_parameters["sampling_function"])
     trajectory.reinitialize()
     trajectory, value = nmcts(trajectory, 1, continuous_variables_parameters)
     trajectory.evaluate_mga()
-    
+
     # Results
     print(f"Best delta V: {value / 1000:.3f} km/s")

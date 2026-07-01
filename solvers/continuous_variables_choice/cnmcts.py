@@ -49,9 +49,6 @@ def cnmcts(
         [pk.planet(pk.udpla.jpl_lp(planet)) for planet in planets_sequence],
         list(bounds[0]),
         [list(element) for element in bounds[1:]],
-        vinf=DV_LAUNCHER
+        vinf=DV_LAUNCHER,
     )
-    return (
-        values_sequence,
-        evaluator.fitness(values_sequence)[0]
-    )
+    return (values_sequence, evaluator.fitness(values_sequence)[0])
