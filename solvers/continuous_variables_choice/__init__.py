@@ -3,7 +3,6 @@ Implements global function to return values vector
 """
 
 from .cnmcts import cnmcts
-from .crbnmcts import crbnmcts
 from .cnrpa import cnrpa
 from .cgnrpa import cgnrpa
 from .cabgnrpa import cabgnrpa
@@ -21,7 +20,6 @@ SAMPLING_FUNCTIONS = {
     "cnmcts": cnmcts,
     "cnrpa": cnrpa,
     "cgnrpa": cgnrpa,
-    "crbnmcts": crbnmcts,
     "cabgnrpa": cabgnrpa,
     "genetic": genetic_algorithm,
 }

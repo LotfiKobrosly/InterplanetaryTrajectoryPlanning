@@ -58,7 +58,7 @@ def run_cnmcts(
                 )
                 current_time = time.time() - start_time
                 if result < best_value:
-                    best_sequence = new_values_sequence
+                    best_sequence = new_values_sequence[:]
                     best_value = result
                 if best_value < UNFEASIBILITY_VALUE:
                     best_values_list.append(best_value)

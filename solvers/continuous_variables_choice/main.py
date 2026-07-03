@@ -10,7 +10,6 @@ import pandas as pd
 import pykep as pk
 import pygmo as pg
 from solvers.continuous_variables_choice.cnmcts import cnmcts
-from solvers.continuous_variables_choice.crbnmcts import crbnmcts
 from solvers.continuous_variables_choice.cnrpa import cnrpa
 from solvers.continuous_variables_choice.cgnrpa import cgnrpa
 from solvers.continuous_variables_choice.cabgnrpa import cabgnrpa
@@ -32,10 +31,9 @@ if __name__ == "__main__":
         # "bee_colony": pygmo_baseline,
         # "uniform": uniform_variables_values_vector,
         # "gaussian_cma_es": gaussian_variables_values_vector,
-        "cnmcts": cnmcts,
-        # "cnrpa": cnrpa,
+        # "cnmcts": cnmcts,
+        "cnrpa": cnrpa,
         # "cgnrpa": cgnrpa,
-        # "crbnmcts": crbnmcts,
         # "cabgnrpa": cabgnrpa,
         # "genetic": genetic_algorithm,
     }
@@ -53,35 +51,37 @@ if __name__ == "__main__":
         "cnmcts": "cNMCS",
         "cnrpa": "cNRPA",
         "cgnrpa": "cGNRPA",
-        "crbnmcts": "cRbNMCS",
         "cabgnrpa": "cABGNRPA",
         "genetic": "Custom Genetic Algorithm",
     }
 
-    trajectory = Trajectory()
+    # Cassini problem
     udp = pk.trajopt.gym.cassini1
-    trajectory.instantiate("Earth", "Saturn")
-    trajectory.variables["planets_sequence"] = [
-        "Earth",
-        "Venus",
-        "Venus",
-        "Earth",
-        "Jupiter",
-        "Saturn",
+    planets_sequence = [
+        pk.planet(pk.udpla.jpl_lp("Earth")),
+        pk.planet(pk.udpla.jpl_lp("Venus")),
+        pk.planet(pk.udpla.jpl_lp("Venus")),
+        pk.planet(pk.udpla.jpl_lp("Earth")),
+        pk.planet(pk.udpla.jpl_lp("Jupiter")),
+        pk.planet(pk.udpla.jpl_lp("Saturn")),
     ]
-    trajectory.set_variables_bounds()
+
+    # Variables bounds
+    bounds = [
+        (low_bound, high_bound)
+        for (low_bound, high_bound) in zip(udp.get_bounds()[0], udp.get_bounds()[1])
+    ]
 
     # General input values
     inputs_values = {
         "evaluator": udp,
-        "planets_sequence": trajectory.variables["planets_sequence"],
+        "planets_sequence": planets_sequence,
         "values_sequence": list(),
-        "bounds": trajectory.bounds,
+        "bounds": bounds,
         "n_iterations": 2500,  # for uniform and gaussian sampling
         "level": 2,  # for cNMCTS, cNRPA and derivatives
         "bandwidth": 200,  # for cNMCTS
         "n_policies": 500,  # for cNRPA and derivatives
-        "multiple_values_policy": True,  # for cNRPA and derivatives
         "learning_rate": 0.05,  # for cNRPA and derivatives
         "tau": 10,  # for cGNRPA and derivatives
         "gamma": 0.2,  # for cABGNRPA
@@ -106,18 +106,15 @@ if __name__ == "__main__":
         "uniform": {"n_iterations": 10000},
         "gaussian_cma_es": {"n_iterations": 1500},
         "cnmcts": {"level": 2, "bandwidth": 200},
-        "crbnmcts": {"level": 2, "bandwidth": 200},
-        "cnrpa": {"level": 2, "n_policies": 1000, "multiple_values_policy": True},
+        "cnrpa": {"level": 2, "n_policies": 1000},
         "cgnrpa": {
             "level": 2,
             "n_policies": 300,
-            "multiple_values_policy": True,
             "tau": 10,
         },
         "cabgnrpa": {
             "level": 2,
             "n_policies": 100,
-            "multiple_values_policy": True,
             "tau": 10,
             "gamma": 0.7,
         },
