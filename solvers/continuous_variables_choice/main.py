@@ -14,7 +14,6 @@ from solvers.continuous_variables_choice.cnrpa import cnrpa
 from solvers.continuous_variables_choice.cgnrpa import cgnrpa
 from solvers.continuous_variables_choice.cabgnrpa import cabgnrpa
 from solvers.continuous_variables_choice.baselines import *
-from classes.trajectory import Trajectory
 from utils.constants import UNFEASIBILITY_VALUE, DV_LAUNCHER
 
 
@@ -22,19 +21,19 @@ if __name__ == "__main__":
     print("Testing Cassini MGA:\n")
 
     SAMPLING_FUNCTIONS = {
-        # "cmaes": pygmo_baseline,
-        # "sade": pygmo_baseline,
-        # "sga": pygmo_baseline,
-        # "simulated_annealing": pygmo_baseline,
-        # "pso": pygmo_baseline,
-        # "gaco": pygmo_baseline,
-        # "bee_colony": pygmo_baseline,
-        # "uniform": uniform_variables_values_vector,
-        # "gaussian_cma_es": gaussian_variables_values_vector,
-        # "cnmcts": cnmcts,
-        # "cnrpa": cnrpa,
-        # "cgnrpa": cgnrpa,
-        # "cabgnrpa": cabgnrpa,
+        "cmaes": pygmo_baseline,
+        "sade": pygmo_baseline,
+        "sga": pygmo_baseline,
+        "simulated_annealing": pygmo_baseline,
+        "pso": pygmo_baseline,
+        "gaco": pygmo_baseline,
+        "bee_colony": pygmo_baseline,
+        "uniform": uniform_variables_values_vector,
+        "gaussian_cma_es": gaussian_variables_values_vector,
+        "cnmcts": cnmcts,
+        "cnrpa": cnrpa,
+        "cgnrpa": cgnrpa,
+        "cabgnrpa": cabgnrpa,
         "genetic": genetic_algorithm,
     }
 
@@ -76,15 +75,8 @@ if __name__ == "__main__":
     inputs_values = {
         "evaluator": udp,
         "planets_sequence": planets_sequence,
-        "values_sequence": list(),
         "bounds": bounds,
         "n_iterations": 2500,  # for uniform and gaussian sampling
-        "level": 2,  # for cNMCTS, cNRPA and derivatives
-        "bandwidth": 200,  # for cNMCTS
-        "n_policies": 500,  # for cNRPA and derivatives
-        "learning_rate": 0.05,  # for cNRPA and derivatives
-        "tau": 10,  # for cGNRPA and derivatives
-        "gamma": 0.2,  # for cABGNRPA
         "n_generations": 1000,  # for Genetic Algorithm
         "population_size": 500,  # for Genetic Algorithm
         "mutation_probability": 0.15,  # for Genetic Algorithm
