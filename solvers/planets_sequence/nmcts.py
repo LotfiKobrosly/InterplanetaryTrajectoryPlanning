@@ -85,7 +85,7 @@ if __name__ == "__main__":
     trajectory.instantiate("Earth", "Saturn")
     # for sampling_function in ["cnrpa"]: #["uniform", "gaussian_cma_es", "cnmcts"]:
     continuous_variables_parameters = {
-        "sampling_function": "cgnrpa",
+        "sampling_function": "cabgnrpa",
         "n_iterations": 500,  # for uniform and gaussian sampling
         "level": 1,  # for cNMCTS, cNRPA and derivatives
         "bandwidth": 100,  # for cNMCTS

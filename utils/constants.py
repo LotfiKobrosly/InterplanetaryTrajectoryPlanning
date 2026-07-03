@@ -33,11 +33,11 @@ ORBITAL_PERIODS = {
 # Times of flight bounds in days from Claude estimations
 TOF_BOUNDS = {
     ("Mercury", "Mercury"): (
-        ORBITAL_PERIODS["Mercury"] / 4,
+        ORBITAL_PERIODS["Mercury"] // 4,
         ORBITAL_PERIODS["Mercury"] * 4,
     ),
-    ("Venus", "Venus"): (ORBITAL_PERIODS["Venus"] / 4, ORBITAL_PERIODS["Venus"] * 4),
-    ("Earth", "Earth"): (ORBITAL_PERIODS["Earth"] / 4, ORBITAL_PERIODS["Earth"] * 4),
+    ("Venus", "Venus"): (ORBITAL_PERIODS["Venus"] // 4, ORBITAL_PERIODS["Venus"] * 4),
+    ("Earth", "Earth"): (ORBITAL_PERIODS["Earth"] // 4, ORBITAL_PERIODS["Earth"] * 4),
     ("Mercury", "Venus"): (60, 250),
     ("Mercury", "Earth"): (90, 350),
     ("Mercury", "Mars"): (150, 500),
@@ -77,6 +77,16 @@ INDICES = {
     "Neptune": (0, 8),
     "Pluto": (0, 9),
 }
+PLANETS_SEMI_MAJOR_AXIS_AND_EXCENTRICITY = {
+    "mercury": (0.387, 0.2056),
+    "venus": (0.723, 0.0067),
+    "earth": (1.000, 0.0167),
+    "mars": (1.524, 0.0934),
+    "jupiter": (5.203, 0.0489),
+    "saturn": (9.537, 0.0565),
+    "uranus": (19.19, 0.0463),
+    "neptune": (30.07, 0.0097),
+}
 
 
 # Spacecraft constants
@@ -109,6 +119,7 @@ SAMPLING_FUNCTIONS = [
     "crbnmcts",
     "cnrpa",
     "cgnrpa",
+    "cabgnrpa",
 ]
 
 # cGNRPA

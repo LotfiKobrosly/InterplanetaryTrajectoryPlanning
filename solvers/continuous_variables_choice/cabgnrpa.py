@@ -1,5 +1,5 @@
 """
-Implements Continuous Generalized Nested Rollout Policy for continuous variables' values choice
+Implements Continuous Adaptive Bias Generalized Nested Rollout Policy for continuous variables' values choice
 Here, the values sequence is represented as follows:
 values_sequence = [departure_epoch, time_of_flight_0, ..., time_of_flight_n]
 
@@ -8,6 +8,14 @@ We would do the lambert leg values computation as well as the gravity assist imp
 - Compute for each candidate TOF the Lambert leg and the flyby result
 - Use these results to generate the biases values
 - Add the biases to the candidates' weights and do the selection
+
+Bias values are defined for each planet by the states which are represented as the normalized values of:
+- Arrival relative velocity of the spacecraft
+- The position of the planet
+- The velocity of the planet
+For each state, a division of the time of flight range, with a weight given to each value.
+These weights change according to the ABGNRPA process of bias adaptation.
+These biases are taken into consideration when the encountered state is close-by (speciefied radius).
 
 Policy adaptation will then occur in the same manner as in cNRPA
 """
@@ -23,23 +31,27 @@ from utils.constants import (
     N_CANDIDATES,
     SAFE_RADIUS_FACTOR,
     DV_LAUNCHER,
+    PLANETS_SEMI_MAJOR_AXIS_AND_EXCENTRICITY,
 )
 from utils.basic_functions import *
 from utils.heuristic_functions import porkchop_scan
-from solvers.continuous_variables_choice.cnrpa import adapt_policy
 from utils.gaussian_kernel import (
     GaussianKernel,
 )
+from utils.orbital_elements import orbital_speeds
+from solvers.continuous_variables_choice.cnrpa import adapt_policy
 
 
-def biased_policy_playout(
+def adaptive_bias_policy_playout(
     policy: dict,
+    biases_values: dict,
     bounds: list,
     multiple_values_policy: bool,
     planets_sequence: list = None,
     states_sequence: list = list(),
     std_factor: float = 1,
     tau: float = 10,
+    gamma: float = 0.1,
 ):
     planets_sequence = [
         pk.planet(pk.udpla.jpl_lp(planet)) for planet in planets_sequence
@@ -113,32 +125,59 @@ def biased_policy_playout(
                     policy_weights_candidate = RANDOM_GENERATOR.uniform(
                         low_bound, high_bound
                     )
+
                 epoch_list.append(epoch_list[-1] + chosen_value)
                 planet_radius, planet_velocity = planet.eph(epoch_list[-1])
                 planets_velocities_list.append(planet_velocity)
+                current_state = states_sequence[-1]
+                planet_name = planets_sequence[advancement - 1].get_name()[:-8]
+
                 if (advancement > 1) and (advancement < (len(planets_sequence) - 1)):
-                    # Heuristic function candidate
+                    # Bias values' based candidate
                     ## Get candidates
-                    _, bias_candidates, local_delta_v_list = porkchop_scan(
-                        planets_sequence[advancement - 1],
-                        planets_sequence[advancement],
-                        [epoch_list[-1], epoch_list[-1] + 1],
-                        [low_bound, high_bound],
-                        last_arrival_velocity,
-                        n_t0=1,
-                        n_tof=N_CANDIDATES,
-                    )
-                    ## Keep valid values
-                    local_delta_v_list = local_delta_v_list.flatten()
-                    bias_candidates = bias_candidates[
-                        np.where(local_delta_v_list < UNFEASIBILITY_VALUE)
-                    ]
-                    local_delta_v_list = local_delta_v_list[
-                        np.where(local_delta_v_list < UNFEASIBILITY_VALUE)
-                    ]
+                    gaussian_kernel = GaussianKernel(current_state, 0.2)
+
+                    if planet_name in biases_values.keys():
+
+                        bias_values, bias_candidates = list(), list()
+                        for state, candidates in biases_values[planet_name].items():
+                            weight = gaussian_kernel.pdf(state)
+                            if weight > GAUSSIAN_KERNEL_THRESHOLD:
+                                for candidate, candidate_weight in biases_values[
+                                    planet_name
+                                ][state].items():
+                                    bias_candidates.append(candidate)
+                                    bias_values.append(weight * candidate_weight)
+                        bias_values = np.array(bias_values)
+                        relevant_nearby_states = (len(bias_values) > 0) and (
+                            np.sum(bias_values) > 10 * GAUSSIAN_KERNEL_THRESHOLD
+                        )
+
+                    else:
+                        relevant_nearby_states = False
+                    if not relevant_nearby_states:
+                        _, bias_candidates, local_delta_v_list = porkchop_scan(
+                            planets_sequence[advancement - 1],
+                            planets_sequence[advancement],
+                            [epoch_list[-1], epoch_list[-1] + 1],
+                            [low_bound, high_bound],
+                            last_arrival_velocity,
+                            n_t0=1,
+                            n_tof=N_CANDIDATES,
+                        )
+                        ## Keep valid values
+                        local_delta_v_list = local_delta_v_list.flatten()
+                        bias_candidates = bias_candidates[
+                            np.where(local_delta_v_list < UNFEASIBILITY_VALUE)
+                        ]
+                        local_delta_v_list = local_delta_v_list[
+                            np.where(local_delta_v_list < UNFEASIBILITY_VALUE)
+                        ]
+                        bias_values = 1000 / local_delta_v_list
+                    bias_values /= np.sum(bias_values)
                     if list(bias_candidates):
                         bias_candidate, bias_sigma = fit_gaussian_from_density(
-                            bias_candidates, 1000 / local_delta_v_list
+                            bias_candidates, bias_values
                         )
 
                         # Choosing the best candidate
@@ -154,6 +193,35 @@ def biased_policy_playout(
                             low_bound,
                             high_bound,
                         )
+                        # Adding current_state to biases_values
+                        if biases_values.get(planet_name, None) is None:
+                            biases_values[planet_name] = dict()
+                        adaptation_kernel = GaussianKernel(
+                            chosen_value, (high_bound - low_bound) * std_factor
+                        )
+                        if code(current_state) not in biases_values[planet_name].keys():
+                            biases_values[planet_name][code(current_state)] = {
+                                code(tof): adaptation_kernel.pdf(tof)
+                                for tof in range(
+                                    int(low_bound),
+                                    int(high_bound) + 1,
+                                    int((high_bound - low_bound) / N_CANDIDATES),
+                                )
+                            }
+                        if relevant_nearby_states:
+                            for state, candidates in biases_values[planet_name].items():
+                                weight = gaussian_kernel.pdf(state)
+                                for candidate, candidate_weight in candidates.items():
+                                    candidates[candidate] = (
+                                        1
+                                        + gamma
+                                        * weight
+                                        * adaptation_kernel.pdf(candidate)
+                                    ) * candidate_weight
+                                # Normalization
+                                noramlizing_factor = np.sum(list(candidates.values()))
+                                for candidate in candidates.keys():
+                                    candidates[candidate] /= noramlizing_factor
                     else:
                         chosen_value = truncate(
                             RANDOM_GENERATOR.normal(
@@ -183,18 +251,33 @@ def biased_policy_playout(
                     multi_revs=0,
                 )
 
-                arrival_velocity = np.array(lambert_leg.v1[0])
-                planets_radii_list.append(planet_radius)
-
-                last_arrival_velocity = arrival_velocity
-                states_sequence.append(
-                    normalize(
-                        arrival_velocity,
-                        np.zeros(np.shape(arrival_velocity)),
-                        VELOCITY_NORMALIZING_FACTOR
-                        * np.ones(np.shape(arrival_velocity)),
-                    )
+                last_arrival_velocity = lambert_leg.v1[0]
+                min_radius, max_radius, min_velocity, max_velocity = orbital_speeds(
+                    *PLANETS_SEMI_MAJOR_AXIS_AND_EXCENTRICITY[
+                        planet_name
+                    ]  # 8 because get_name returns 'planet(jpl_elp)'
                 )
+                current_state = (
+                    *code(
+                        normalize(
+                            last_arrival_velocity,
+                            np.zeros(np.shape(last_arrival_velocity)),
+                            VELOCITY_NORMALIZING_FACTOR
+                            * np.ones(np.shape(last_arrival_velocity)),
+                        )
+                    ),
+                    *code(
+                        normalize(
+                            planets_radii_list[-1],
+                            np.full((3,), min_radius),
+                            np.full((3,), max_radius),
+                        )
+                    ),
+                )
+                states_sequence.append(current_state)
+
+                planets_radii_list.append(planet_radius)
+                planets_velocities_list.append(planet_velocity)
         else:
             if policy:
                 chosen_value = RANDOM_GENERATOR.normal(
@@ -207,9 +290,10 @@ def biased_policy_playout(
     return values_sequence
 
 
-def run_cgnrpa(
+def run_cabgnrpa(
     values_sequence: list = list(),
     policy: dict = dict(),
+    biases_values: dict = dict(),
     multiple_values_policy: bool = False,
     level: int = 0,
     n_policies: int = 10,
@@ -219,6 +303,7 @@ def run_cgnrpa(
     states_sequence: list = list(),
     learning_rate: float = 0.01,
     tau: float = 10,
+    gamma: float = 0.1,
     *args,
     **kwargs,
 ):
@@ -233,14 +318,16 @@ def run_cgnrpa(
     )
     if level == 0:
 
-        values_sequence = biased_policy_playout(
+        values_sequence = adaptive_bias_policy_playout(
             policy=policy,
+            biases_values=biases_values,
             bounds=bounds,
             multiple_values_policy=multiple_values_policy,
             planets_sequence=planets_sequence,
             states_sequence=states_sequence,
             std_factor=0.01 + 0.5 * np.exp(-10 * current_iteration / (n_policies)),
             tau=tau,
+            gamma=gamma,
         )
         return (
             values_sequence,
@@ -254,8 +341,9 @@ def run_cgnrpa(
         best_states_sequence = None
         for current_iteration in range(n_policies):
             states_sequence = list()
-            values_sequence, states_sequence, total_delta_v = run_cgnrpa(
+            values_sequence, states_sequence, total_delta_v = run_cabgnrpa(
                 policy=current_policy,
+                biases_values=biases_values,
                 multiple_values_policy=multiple_values_policy,
                 level=level - 1,
                 n_policies=n_policies,
@@ -265,6 +353,7 @@ def run_cgnrpa(
                 states_sequence=states_sequence,
                 learning_rate=learning_rate,
                 tau=tau,
+                gamma=gamma,
             )
             if total_delta_v < best_delta_v:
                 best_delta_v = total_delta_v
@@ -285,24 +374,23 @@ def run_cgnrpa(
         )
 
 
-def cgnrpa(
+def cabgnrpa(
     values_sequence: list = list(),
-    policy: dict = dict(),
     multiple_values_policy: bool = False,
     level: int = 0,
     n_policies: int = 10,
     bounds: list = None,
     planets_sequence: list = None,
-    current_iteration: int = 0,
-    states_sequence: list = list(),
     learning_rate: float = 0.01,
     tau: float = 10,
+    gamma: float = 0.1,
     *args,
     **kwargs,
 ):
-    result = run_cgnrpa(
+    result = run_cabgnrpa(
         values_sequence,
-        policy,
+        dict(),
+        dict(),
         multiple_values_policy,
         level,
         n_policies,
@@ -312,5 +400,6 @@ def cgnrpa(
         list(),
         learning_rate,
         tau,
+        gamma,
     )
     return result[0], result[2]

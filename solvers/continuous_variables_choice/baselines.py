@@ -7,6 +7,7 @@ In this file, the values sequence is represented as follows:
 [departure_epoch, time_of_flight_0,..., time_of_flight_n, (arrival_radius_0, arrival_angle_0),..., (arrival_radius_(n-1), arrival_angle(n-1))]
 """
 
+import time
 import warnings
 import numpy as np
 import pykep as pk
@@ -302,8 +303,6 @@ def pso_gen_pygmo(
     bounds: list,
     planets_sequence: list,
     n_generations: int = 5000,
-    kernel_size: int = 10,
-    learning_rate: float = 0.01,
     *args,
     **kwargs,
 ):

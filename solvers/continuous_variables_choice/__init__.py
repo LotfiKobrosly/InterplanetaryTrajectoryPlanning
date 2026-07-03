@@ -6,6 +6,7 @@ from .cnmcts import cnmcts
 from .crbnmcts import crbnmcts
 from .cnrpa import cnrpa
 from .cgnrpa import cgnrpa
+from .cabgnrpa import cabgnrpa
 from .baselines import *
 
 SAMPLING_FUNCTIONS = {
@@ -21,6 +22,7 @@ SAMPLING_FUNCTIONS = {
     "cnrpa": cnrpa,
     "cgnrpa": cgnrpa,
     "crbnmcts": crbnmcts,
+    "cabgnrpa": cabgnrpa,
     "genetic": genetic_algorithm,
 }
 
