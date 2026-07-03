@@ -12,6 +12,7 @@ We would do the lambert leg values computation as well as the gravity assist imp
 Policy adaptation will then occur in the same manner as in cNRPA
 """
 
+import time
 from copy import deepcopy
 import numpy as np
 import pykep as pk
@@ -19,150 +20,132 @@ from utils.constants import (
     GAUSSIAN_KERNEL_THRESHOLD,
     RANDOM_GENERATOR,
     VELOCITY_NORMALIZING_FACTOR,
+    DV_LAUNCHER,
     UNFEASIBILITY_VALUE,
     N_CANDIDATES,
-    SAFE_RADIUS_FACTOR,
-    DV_LAUNCHER,
 )
 from utils.basic_functions import *
-from utils.heuristic_functions import porkchop_scan
-from solvers.continuous_variables_choice.cnrpa import adapt_policy
 from utils.gaussian_kernel import (
     GaussianKernel,
 )
+from utils.heuristic_functions import porkchop_scan
+from solvers.continuous_variables_choice.cnrpa import adapt_policy
 
 
 def biased_policy_playout(
     policy: dict,
     bounds: list,
-    multiple_values_policy: bool,
     planets_sequence: list = None,
-    states_sequence: list = list(),
     std_factor: float = 1,
     tau: float = 10,
 ):
-    planets_sequence = [
-        pk.planet(pk.udpla.jpl_lp(planet)) for planet in planets_sequence
-    ]
-    values_sequence = list()
+    values_sequence, states_sequence = list(), list()
     epoch_list, planets_radii_list, planets_velocities_list = list(), list(), list()
     last_arrival_velocity = None
     for advancement, planet in enumerate(planets_sequence):
         # Get bounds
         low_bound, high_bound = bounds[advancement]
 
-        if multiple_values_policy:
-            # Choose departure epoch
-            if advancement == 0:
-                # No biases at this stage
-                if policy:
-                    chosen_value = round(
-                        denormalize(
-                            RANDOM_GENERATOR.normal(policy[0], std_factor),
-                            low_bound,
-                            high_bound,
-                        )
+        # Choose departure epoch
+        if advancement == 0:
+            # No biases at this stage
+            if policy:
+                chosen_value = round(
+                    denormalize(
+                        RANDOM_GENERATOR.normal(policy[0], std_factor),
+                        low_bound,
+                        high_bound,
                     )
-                else:
-                    chosen_value = RANDOM_GENERATOR.uniform(low_bound, high_bound)
-
-                epoch_list.append(chosen_value)
-                radius, velocity = planets_sequence[0].eph(chosen_value)
-                planets_radii_list.append(radius)
-                planets_velocities_list.append(velocity)
-                states_sequence.append(normalize(chosen_value, low_bound, high_bound))
-                last_arrival_velocity = velocity
-
+                )
             else:
-                # The choice of the next value will depend on a candidate generated
-                # from the probability weights, and a candidate from the heuristic function
-                # Then, we sample according to a mixture of two normal distributions
-                # around these two candidates, with 1/tau being the weight of the policy candidate
+                chosen_value = RANDOM_GENERATOR.uniform(low_bound, high_bound)
 
-                # Policy candidate
-                if policy:
-                    current_policy = policy[advancement]
-                    gaussian_kernel = GaussianKernel(
-                        states_sequence[-1], sigma=std_factor
-                    )
-                    values, weights = list(), list()
-                    for key in current_policy.keys():
-                        if isinstance(current_policy[key], (float, int)):
-                            value = current_policy[key]
-                        else:
-                            value = np.array(current_policy[key])
-                        weight = gaussian_kernel.pdf(value)
-                        if weight >= GAUSSIAN_KERNEL_THRESHOLD:
-                            weights.append(weight)
-                            values.append(value)
-                    if values:
-                        weights = np.array(weights)
-                        weights /= np.sum(weights)
-                        policy_weights_candidate = denormalize(
-                            RANDOM_GENERATOR.normal(
-                                weights @ np.array(values).T, std_factor
-                            ),
-                            low_bound,
-                            high_bound,
-                        )
+            epoch_list.append(chosen_value)
+            radius, velocity = planets_sequence[0].eph(chosen_value)
+            planets_radii_list.append(radius)
+            planets_velocities_list.append(velocity)
+            states_sequence.append(normalize(chosen_value, low_bound, high_bound))
+            last_arrival_velocity = velocity
+
+        else:
+            # The choice of the next value will depend on a candidate generated
+            # from the probability weights, and a candidate from the heuristic function
+            # Then, we sample according to a mixture of two normal distributions
+            # around these two candidates, with 1/tau being the weight of the policy candidate
+
+            # Policy candidate
+            if policy:
+                current_policy = policy[advancement]
+                gaussian_kernel = GaussianKernel(states_sequence[-1], sigma=std_factor)
+                values, weights = list(), list()
+                for key in current_policy.keys():
+                    if isinstance(current_policy[key], (float, int)):
+                        value = current_policy[key]
                     else:
-                        policy_weights_candidate = RANDOM_GENERATOR.uniform(
-                            low_bound, high_bound
-                        )
+                        value = np.array(current_policy[key])
+                    weight = gaussian_kernel.pdf(value)
+                    if weight >= GAUSSIAN_KERNEL_THRESHOLD:
+                        weights.append(weight)
+                        values.append(value)
+                if values:
+                    weights = np.array(weights)
+                    weights /= np.sum(weights)
+                    policy_weights_candidate = denormalize(
+                        RANDOM_GENERATOR.normal(
+                            weights @ np.array(values).T, std_factor
+                        ),
+                        low_bound,
+                        high_bound,
+                    )
                 else:
                     policy_weights_candidate = RANDOM_GENERATOR.uniform(
                         low_bound, high_bound
                     )
-                epoch_list.append(epoch_list[-1] + chosen_value)
-                planet_radius, planet_velocity = planet.eph(epoch_list[-1])
-                planets_velocities_list.append(planet_velocity)
-                if (advancement > 1) and (advancement < (len(planets_sequence) - 1)):
-                    # Heuristic function candidate
-                    ## Get candidates
-                    _, bias_candidates, local_delta_v_list = porkchop_scan(
-                        planets_sequence[advancement - 1],
-                        planets_sequence[advancement],
-                        [epoch_list[-1], epoch_list[-1] + 1],
-                        [low_bound, high_bound],
-                        last_arrival_velocity,
-                        n_t0=1,
-                        n_tof=N_CANDIDATES,
+            else:
+                policy_weights_candidate = RANDOM_GENERATOR.uniform(
+                    low_bound, high_bound
+                )
+            epoch_list.append(epoch_list[-1] + chosen_value)
+            planet_radius, planet_velocity = planet.eph(epoch_list[-1])
+            planets_velocities_list.append(planet_velocity)
+            if (advancement > 1) and (advancement < (len(planets_sequence) - 1)):
+                # Heuristic function candidate
+                ## Get candidates
+                _, bias_candidates, local_delta_v_list = porkchop_scan(
+                    planets_sequence[advancement - 1],
+                    planets_sequence[advancement],
+                    [epoch_list[-1], epoch_list[-1] + 1],
+                    [low_bound, high_bound],
+                    last_arrival_velocity,
+                    n_t0=1,
+                    n_tof=N_CANDIDATES,
+                )
+                ## Keep valid values
+                local_delta_v_list = local_delta_v_list.flatten()
+                bias_candidates = bias_candidates[
+                    np.where(local_delta_v_list < UNFEASIBILITY_VALUE)
+                ]
+                local_delta_v_list = local_delta_v_list[
+                    np.where(local_delta_v_list < UNFEASIBILITY_VALUE)
+                ]
+                if list(bias_candidates):
+                    bias_candidate, bias_sigma = fit_gaussian_from_density(
+                        bias_candidates, 1000 / local_delta_v_list
                     )
-                    ## Keep valid values
-                    local_delta_v_list = local_delta_v_list.flatten()
-                    bias_candidates = bias_candidates[
-                        np.where(local_delta_v_list < UNFEASIBILITY_VALUE)
-                    ]
-                    local_delta_v_list = local_delta_v_list[
-                        np.where(local_delta_v_list < UNFEASIBILITY_VALUE)
-                    ]
-                    if list(bias_candidates):
-                        bias_candidate, bias_sigma = fit_gaussian_from_density(
-                            bias_candidates, 1000 / local_delta_v_list
-                        )
 
-                        # Choosing the best candidate
-                        chosen_value = truncate(
-                            sample_mixture_1d(
-                                n_samples=1,
-                                mu1=policy_weights_candidate,
-                                sigma1=denormalize(std_factor, low_bound, high_bound),
-                                mu2=bias_candidate,
-                                sigma2=bias_sigma,
-                                weight1=1 / tau,
-                            )[0],
-                            low_bound,
-                            high_bound,
-                        )
-                    else:
-                        chosen_value = truncate(
-                            RANDOM_GENERATOR.normal(
-                                policy_weights_candidate,
-                                (high_bound - low_bound) * std_factor,
-                            ),
-                            low_bound,
-                            high_bound,
-                        )
+                    # Choosing the best candidate
+                    chosen_value = truncate(
+                        sample_mixture_1d(
+                            n_samples=1,
+                            mu1=policy_weights_candidate,
+                            sigma1=denormalize(std_factor, low_bound, high_bound),
+                            mu2=bias_candidate,
+                            sigma2=bias_sigma,
+                            weight1=1 / tau,
+                        )[0],
+                        low_bound,
+                        high_bound,
+                    )
                 else:
                     chosen_value = truncate(
                         RANDOM_GENERATOR.normal(
@@ -172,74 +155,72 @@ def biased_policy_playout(
                         low_bound,
                         high_bound,
                     )
-
-                # Computing next state
-                lambert_leg = pk.lambert_problem(
-                    tof=chosen_value * pk.DAY2SEC,
-                    r0=planets_radii_list[-1],
-                    r1=planet_radius,
-                    mu=pk.MU_SUN,
-                    cw=False,
-                    multi_revs=0,
-                )
-
-                arrival_velocity = np.array(lambert_leg.v1[0])
-                planets_radii_list.append(planet_radius)
-
-                last_arrival_velocity = arrival_velocity
-                states_sequence.append(
-                    normalize(
-                        arrival_velocity,
-                        np.zeros(np.shape(arrival_velocity)),
-                        VELOCITY_NORMALIZING_FACTOR
-                        * np.ones(np.shape(arrival_velocity)),
-                    )
-                )
-        else:
-            if policy:
-                chosen_value = RANDOM_GENERATOR.normal(
-                    policy[advancement], std_factor * (high_bound - low_bound) / 10
-                )
-                chosen_value = truncate(chosen_value, low_bound, high_bound)
             else:
-                chosen_value = RANDOM_GENERATOR.uniform(low_bound, high_bound)
+                chosen_value = truncate(
+                    RANDOM_GENERATOR.normal(
+                        policy_weights_candidate,
+                        (high_bound - low_bound) * std_factor,
+                    ),
+                    low_bound,
+                    high_bound,
+                )
+
+            # Computing next state
+            lambert_leg = pk.lambert_problem(
+                tof=chosen_value * pk.DAY2SEC,
+                r0=planets_radii_list[-1],
+                r1=planet_radius,
+                mu=pk.MU_SUN,
+                cw=False,
+                multi_revs=0,
+            )
+
+            arrival_velocity = np.array(lambert_leg.v1[0])
+            planets_radii_list.append(planet_radius)
+
+            last_arrival_velocity = arrival_velocity
+            states_sequence.append(
+                normalize(
+                    arrival_velocity,
+                    np.zeros(np.shape(arrival_velocity)),
+                    VELOCITY_NORMALIZING_FACTOR * np.ones(np.shape(arrival_velocity)),
+                )
+            )
+
         values_sequence.append(chosen_value)
-    return values_sequence
+    return values_sequence, states_sequence
 
 
 def run_cgnrpa(
-    values_sequence: list = list(),
+    evaluator: pk.trajopt.mga,
     policy: dict = dict(),
-    multiple_values_policy: bool = False,
     level: int = 0,
     n_policies: int = 10,
     bounds: list = None,
     planets_sequence: list = None,
     current_iteration: int = 0,
-    states_sequence: list = list(),
     learning_rate: float = 0.01,
+    timeout: float = 10,
+    start_time: float = 0,
+    best_values_sequence: list = None,
+    best_states_sequence: list = None,
+    best_value: float = UNFEASIBILITY_VALUE,
+    best_values_list: list = None,
+    time_list: list = None,
     tau: float = 10,
     *args,
     **kwargs,
 ):
     assert not (planets_sequence is None), "planets_sequence is None"
     assert not (bounds is None), "bounds is None"
-    sequence = [pk.planet(pk.udpla.jpl_lp(planet)) for planet in planets_sequence]
-    evaluator = pk.trajopt.mga(
-        sequence,
-        list(bounds[0]),
-        [list(element) for element in bounds[1:]],
-        vinf=DV_LAUNCHER,
-    )
+    current_time = time.time() - start_time
     if level == 0:
 
-        values_sequence = biased_policy_playout(
+        values_sequence, states_sequence = biased_policy_playout(
             policy=policy,
             bounds=bounds,
-            multiple_values_policy=multiple_values_policy,
             planets_sequence=planets_sequence,
-            states_sequence=states_sequence,
-            std_factor=0.01 + 0.5 * np.exp(-10 * current_iteration / (n_policies)),
+            std_factor=0.01 + np.exp(-current_iteration),
             tau=tau,
         )
         return (
@@ -248,69 +229,80 @@ def run_cgnrpa(
             evaluator.fitness(values_sequence)[0],
         )
     else:
-        best_delta_v = np.inf
         current_policy = deepcopy(policy)
-        best_values_sequence = None
-        best_states_sequence = None
         for current_iteration in range(n_policies):
-            states_sequence = list()
             values_sequence, states_sequence, total_delta_v = run_cgnrpa(
+                evaluator=evaluator,
                 policy=current_policy,
-                multiple_values_policy=multiple_values_policy,
                 level=level - 1,
                 n_policies=n_policies,
                 planets_sequence=planets_sequence,
                 bounds=bounds,
                 current_iteration=current_iteration,
-                states_sequence=states_sequence,
-                learning_rate=learning_rate,
-                tau=tau,
-            )
-            if total_delta_v < best_delta_v:
-                best_delta_v = total_delta_v
-                best_values_sequence = values_sequence
-                best_states_sequence = states_sequence
-            current_policy = adapt_policy(
+                timeout=timeout,
+                start_time=start_time,
                 best_values_sequence=best_values_sequence,
                 best_states_sequence=best_states_sequence,
-                policy=current_policy,
-                multiple_values_policy=multiple_values_policy,
-                learning_rate=learning_rate,
-                bounds=bounds,
+                best_value=best_value,
+                best_values_list=best_values_list,
+                time_list=time_list,
+                tau=tau,
             )
+            if total_delta_v < best_value:
+                best_value = total_delta_v
+                best_values_sequence = values_sequence[:]
+                best_states_sequence = states_sequence[:]
+            current_time = time.time() - start_time
+            if best_value < UNFEASIBILITY_VALUE:
+                current_policy = adapt_policy(
+                    best_values_sequence=best_values_sequence,
+                    best_states_sequence=best_states_sequence,
+                    policy=current_policy,
+                    learning_rate=learning_rate,
+                    bounds=bounds,
+                )
+                best_values_list.append(best_value)
+                time_list.append(current_time)
+            if current_time > timeout:
+                break
         return (
             best_values_sequence,
             best_states_sequence,
-            evaluator.fitness(best_values_sequence)[0],
+            best_value,
         )
 
 
 def cgnrpa(
-    values_sequence: list = list(),
-    policy: dict = dict(),
-    multiple_values_policy: bool = False,
+    evaluator: pk.trajopt.mga,
     level: int = 0,
     n_policies: int = 10,
     bounds: list = None,
     planets_sequence: list = None,
     current_iteration: int = 0,
-    states_sequence: list = list(),
     learning_rate: float = 0.01,
+    timeout: float = 10,
     tau: float = 10,
     *args,
     **kwargs,
 ):
-    result = run_cgnrpa(
-        values_sequence,
-        policy,
-        multiple_values_policy,
-        level,
-        n_policies,
-        bounds,
-        planets_sequence,
-        0,
-        list(),
-        learning_rate,
-        tau,
+    start_time = time.time()
+    best_values_list, time_list = list(), list()
+    best_values_sequence, best_states_sequence, best_value = run_cgnrpa(
+        evaluator=evaluator,
+        policy=dict(),
+        level=level,
+        n_policies=n_policies,
+        bounds=bounds,
+        planets_sequence=planets_sequence,
+        current_iteration=0,
+        learning_rate=learning_rate,
+        timeout=timeout,
+        start_time=start_time,
+        best_values_sequence=None,
+        best_states_sequence=None,
+        best_value=UNFEASIBILITY_VALUE,
+        best_values_list=best_values_list,
+        time_list=time_list,
+        tau=tau,
     )
-    return result[0], result[2]
+    return best_values_sequence, best_value, best_values_list, time_list

@@ -32,10 +32,10 @@ if __name__ == "__main__":
         # "uniform": uniform_variables_values_vector,
         # "gaussian_cma_es": gaussian_variables_values_vector,
         # "cnmcts": cnmcts,
-        "cnrpa": cnrpa,
+        # "cnrpa": cnrpa,
         # "cgnrpa": cgnrpa,
         # "cabgnrpa": cabgnrpa,
-        # "genetic": genetic_algorithm,
+        "genetic": genetic_algorithm,
     }
 
     SAMPLING_FUNCTIONS_NAMES = {
@@ -106,17 +106,19 @@ if __name__ == "__main__":
         "uniform": {"n_iterations": 10000},
         "gaussian_cma_es": {"n_iterations": 1500},
         "cnmcts": {"level": 2, "bandwidth": 200},
-        "cnrpa": {"level": 2, "n_policies": 1000},
+        "cnrpa": {"level": 2, "n_policies": 1000, "learning_rate": 0.1},
         "cgnrpa": {
             "level": 2,
             "n_policies": 300,
+            "learning_rate": 0.1,
             "tau": 10,
         },
         "cabgnrpa": {
             "level": 2,
             "n_policies": 100,
-            "tau": 10,
-            "gamma": 0.7,
+            "learning_rate": 0.1,
+            "tau": 1,
+            "gamma": 0.2,
         },
         "genetic": {"n_generations": 5000, "mutation_probability": 0.15},
     }
@@ -126,8 +128,10 @@ if __name__ == "__main__":
         specific_input_values = deepcopy(inputs_values)
         for arg, val in algorithm_parameters[algorithm].items():
             specific_input_values[arg] = val
-        specific_input_values["timeout"] = timeouts_list[2]
-        values_sequence, delta_v, best_values_list, time_list = function(**specific_input_values)
+        specific_input_values["timeout"] = 10
+        values_sequence, delta_v, best_values_list, time_list = function(
+            **specific_input_values
+        )
         if delta_v < UNFEASIBILITY_VALUE:
             print(f"Delta V: {np.linalg.norm(delta_v) / 1000:.3f} km/s")
             plt.plot(time_list, best_values_list)

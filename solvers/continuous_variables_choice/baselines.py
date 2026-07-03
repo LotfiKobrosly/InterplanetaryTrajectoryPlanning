@@ -26,11 +26,16 @@ PYGMO_SOLVERS = {
     },
     "cmaes": {
         "function": pg.cmaes,
-        "solver_parameters": {"gen": 1500, "force_bounds": True, "sigma0": 0.5, "ftol": 1e-4},
+        "solver_parameters": {
+            "gen": 1500,
+            "force_bounds": True,
+            "sigma0": 0.5,
+            "ftol": 1e-4,
+        },
     },
     "sade": {
         "function": pg.sade,
-        "solver_parameters": {"gen": 1500, "ftol": 1e-4, "xtol": 1e-4}
+        "solver_parameters": {"gen": 1500, "ftol": 1e-4, "xtol": 1e-4},
     },
     "sga": {
         "function": pg.sga,
@@ -90,13 +95,19 @@ def uniform_variables_values_vector(
 
 
 def gaussian_variables_values_vector(
-    bounds: list, evaluator: pk.trajopt.mga, timeout: float = 10, n_iterations: int = 5e10, *args, **kwargs
+    bounds: list,
+    evaluator: pk.trajopt.mga,
+    timeout: float = 10,
+    n_iterations: int = 5e10,
+    *args,
+    **kwargs,
 ):
     """
     Returns a sample of a fitted normal distribution through a CMA-ES.
     """
     lower_bounds = np.array([bound[0] for bound in bounds])
     upper_bounds = np.array([bound[1] for bound in bounds])
+
     def objective_function(normalized_vector: np.ndarray):
         result = evaluator.fitness(
             denormalize(normalized_vector, lower_bounds, upper_bounds)
@@ -190,10 +201,11 @@ def pygmo_baseline(
 
 
 def genetic_algorithm(
+    evaluator: pk.trajopt.mga,
     planets_sequence: list = None,
     population: list = None,
     bounds: list = None,
-    n_generations: int = 1000,
+    timeout: float = 10,
     population_size: int = 1000,
     mutation_probability: float = 0.1,
     mutation_effect: float = 0.2,
@@ -219,18 +231,15 @@ def genetic_algorithm(
                 )
         return chromosome
 
-    planets_sequence = [
-        pk.planet(pk.udpla.jpl_lp(planet)) for planet in planets_sequence
-    ]
-    evaluator = pk.trajopt.mga(
-        planets_sequence,
-        list(bounds[0]),
-        [list(element) for element in bounds[1:]],
-        vinf=DV_LAUNCHER,
-    )
     chromosome_length = len(planets_sequence)
     low_bound = [bound[0] for bound in bounds]
     high_bound = [bound[1] for bound in bounds]
+
+    time_list, best_values_list = list(), list()
+    best_x = None
+    best_value = UNFEASIBILITY_VALUE
+    start_time = time.time()
+    current_time = time.time() - start_time
 
     # Initialization
     if population is None:
@@ -240,7 +249,7 @@ def genetic_algorithm(
             (population_size, chromosome_length),
         )
 
-    for _ in range(n_generations):
+    while current_time < timeout:
         # Build new generation
         RANDOM_GENERATOR.shuffle(population)
 
@@ -267,4 +276,12 @@ def genetic_algorithm(
         gene_pool = np.array(gene_pool)[indices]
         population = gene_pool[:population_size]
 
-    return (population[0], evaluator.fitness(population[0])[0])
+        # Store instantaneous results
+        current_time = time.time() - start_time
+        if evaluator.fitness(population[0])[0] < best_value:
+            best_x = population[0]
+            best_value = evaluator.fitness(best_x)[0]
+        best_values_list.append(best_value)
+        time_list.append(current_time)
+
+    return best_x, best_value, best_values_list, time_list

@@ -33,7 +33,7 @@ def run_cnmcts(
                 RANDOM_GENERATOR.uniform(*bounds[len(values_sequence)])
             )
         return values_sequence, evaluator.fitness(values_sequence)[0]
-        
+
     else:
         while len(values_sequence) < len(planets_sequence) and (current_time < timeout):
             temporary_values_sequences = [values_sequence[:] for _ in range(bandwidth)]
@@ -65,6 +65,7 @@ def run_cnmcts(
                     time_list.append(current_time)
             values_sequence.append(best_sequence[len(values_sequence)])
         return (best_sequence, best_value)
+
 
 def cnmcts(
     evaluator: pk.trajopt.mga,

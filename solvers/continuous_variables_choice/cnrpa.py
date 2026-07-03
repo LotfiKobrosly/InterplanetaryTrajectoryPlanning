@@ -69,9 +69,7 @@ def policy_playout(
         else:
             if policy:
                 current_policy = policy[advancement]
-                gaussian_kernel = GaussianKernel(
-                    states_sequence[-1], sigma=std_factor
-                )
+                gaussian_kernel = GaussianKernel(states_sequence[-1], sigma=std_factor)
                 values, weights = list(), list()
                 for key in current_policy.keys():
                     if isinstance(current_policy[key], (float, int)):
@@ -117,8 +115,7 @@ def policy_playout(
                 normalize(
                     arrival_velocity,
                     np.zeros(np.shape(arrival_velocity)),
-                    VELOCITY_NORMALIZING_FACTOR
-                    * np.ones(np.shape(arrival_velocity)),
+                    VELOCITY_NORMALIZING_FACTOR * np.ones(np.shape(arrival_velocity)),
                 )
             )
 
@@ -147,10 +144,7 @@ def adapt_policy(
                     policy[advancement][current_key] = (
                         previous_value
                         + learning_rate
-                        * (
-                            normalize(element, low_bound, high_bound)
-                            - previous_value
-                        )
+                        * (normalize(element, low_bound, high_bound) - previous_value)
                     )
                 else:
                     policy[advancement][current_key] = normalize(
@@ -170,7 +164,7 @@ def adapt_policy(
                                 - previous_value
                             )
                         )
-            
+
     else:
         for advancement, element in enumerate(best_values_sequence):
             low_bound, high_bound = bounds[advancement]
@@ -196,7 +190,6 @@ def adapt_policy(
 
 def run_cnrpa(
     evaluator: pk.trajopt.mga,
-    values_sequence: list = list(),
     policy: dict = dict(),
     level: int = 0,
     n_policies: int = 10,
@@ -223,7 +216,7 @@ def run_cnrpa(
             policy=policy,
             bounds=bounds,
             planets_sequence=planets_sequence,
-            std_factor=0.01 + np.exp(- current_iteration),
+            std_factor=0.01 + np.exp(-current_iteration),
         )
 
         return (
@@ -277,7 +270,6 @@ def run_cnrpa(
 
 def cnrpa(
     evaluator: pk.trajopt.mga,
-    policy: dict = dict(),
     level: int = 0,
     n_policies: int = 10,
     bounds: list = None,
@@ -292,8 +284,7 @@ def cnrpa(
     best_values_list, time_list = list(), list()
     best_values_sequence, best_states_sequence, best_value = run_cnrpa(
         evaluator=evaluator,
-        values_sequence=list(),
-        policy=policy,
+        policy=dict(),
         level=level,
         n_policies=n_policies,
         bounds=bounds,
