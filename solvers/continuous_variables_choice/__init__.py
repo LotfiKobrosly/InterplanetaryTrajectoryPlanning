@@ -10,12 +10,12 @@ from .cabgnrpa import cabgnrpa
 from .baselines import *
 
 SAMPLING_FUNCTIONS = {
-    "cmaes": cmaes_pygmo,
-    "sade": sade_pygmo,
-    "sga": genetic_pygmo,
-    "simulated_annealing": sa_pygmo,
-    "pso": pso_gen_pygmo,
-    "gaco": gaco_pygmo,
+    "cmaes": pygmo_baseline,
+    "sade": pygmo_baseline,
+    "sga": pygmo_baseline,
+    "simulated_annealing": pygmo_baseline,
+    "pso": pygmo_baseline,
+    "gaco": pygmo_baseline,
     "uniform": uniform_variables_values_vector,
     "gaussian_cma_es": gaussian_variables_values_vector,
     "cnmcts": cnmcts,

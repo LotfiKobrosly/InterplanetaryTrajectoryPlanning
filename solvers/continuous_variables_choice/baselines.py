@@ -9,34 +9,60 @@ In this file, the values sequence is represented as follows:
 
 import time
 import warnings
+from copy import deepcopy
 import numpy as np
 import pykep as pk
 import pygmo as pg
 import cma
 from utils.basic_functions import normalize, denormalize
-from utils.constants import RANDOM_GENERATOR, DV_LAUNCHER
+from utils.constants import RANDOM_GENERATOR, DV_LAUNCHER, UNFEASIBILITY_VALUE
 
 warnings.filterwarnings("ignore")
 
+PYGMO_SOLVERS = {
+    "bee_colony": {
+        "function": pg.bee_colony,
+        "solver_parameters": {"gen": 1500, "limit": 20},
+    },
+    "cmaes": {
+        "function": pg.cmaes,
+        "solver_parameters": {"gen": 1500, "force_bounds": True, "sigma0": 0.5, "ftol": 1e-4},
+    },
+    "sade": {
+        "function": pg.sade,
+        "solver_parameters": {"gen": 1500, "ftol": 1e-4, "xtol": 1e-4}
+    },
+    "sga": {
+        "function": pg.sga,
+        "solver_parameters": {"gen": 2500, "cr": 0.95, "m": 0.15},
+    },
+    "simulated_annealing": {
+        "function": pg.simulated_annealing,
+        "solver_parameters": {"Ts": 10.0, "Tf": 1e-5, "n_T_adj": 100},
+    },
+    "pso": {
+        "function": pg.pso_gen,
+        "solver_parameters": {"gen": 5000},
+    },
+    "gaco": {
+        "function": pg.gaco,
+        "solver_parameters": {"gen": 1500, "ker": 10, "q": 0.01, "oracle": 1e9},
+    },
+}
+
 
 def uniform_variables_values_vector(
-    bounds: list, planets_sequence: list, n_iterations: int = 500, *args, **kwargs
+    bounds: list, evaluator: pk.trajopt.mga, timeout: float = 10, *args, **kwargs
 ):
     """
     Returns a uniformly sampled vector from the given bounds
     """
     best_vector = None
-    best_value = 1e30
-    planets_sequence = [
-        pk.planet(pk.udpla.jpl_lp(planet)) for planet in planets_sequence
-    ]
-    evaluator = pk.trajopt.mga(
-        planets_sequence,
-        list(bounds[0]),
-        [list(element) for element in bounds[1:]],
-        vinf=DV_LAUNCHER,
-    )
-    for iteration in range(n_iterations):
+    best_value = UNFEASIBILITY_VALUE
+    best_values_list, time_list = list(), list()
+    start_time = time.time()
+    current_time = time.time() - start_time
+    while current_time < timeout:
         # Imposing a strict while loop here without the max iterations condition might
         # result in an endless loop, given the pure random aspect of this algorithm
         vector = RANDOM_GENERATOR.uniform(
@@ -49,32 +75,28 @@ def uniform_variables_values_vector(
         if not (result is None) and (result[0] < best_value):
             best_value = result[0]
             best_vector = vector
+        current_time = time.time() - start_time
+        if best_value < UNFEASIBILITY_VALUE:
+            best_values_list.append(best_value)
+            time_list.append(current_time)
     if best_vector is None:
         best_vector = vector
     return (
         best_vector,
-        evaluator.fitness(best_vector)[0],
+        best_value,
+        best_values_list,
+        time_list,
     )
 
 
 def gaussian_variables_values_vector(
-    bounds: list, planets_sequence: list, n_iterations: int = 500, *args, **kwargs
+    bounds: list, evaluator: pk.trajopt.mga, timeout: float = 10, n_iterations: int = 5e10, *args, **kwargs
 ):
     """
     Returns a sample of a fitted normal distribution through a CMA-ES.
     """
     lower_bounds = np.array([bound[0] for bound in bounds])
     upper_bounds = np.array([bound[1] for bound in bounds])
-    planets_sequence = [
-        pk.planet(pk.udpla.jpl_lp(planet)) for planet in planets_sequence
-    ]
-    evaluator = pk.trajopt.mga(
-        planets_sequence,
-        list(bounds[0]),
-        [list(element) for element in bounds[1:]],
-        vinf=DV_LAUNCHER,
-    )
-
     def objective_function(normalized_vector: np.ndarray):
         result = evaluator.fitness(
             denormalize(normalized_vector, lower_bounds, upper_bounds)
@@ -99,303 +121,72 @@ def gaussian_variables_values_vector(
     options["verbose"] = -9  # this value means no verboses
 
     # --- Run ---
+    best_values_list, time_list = list(), list()
     estimator = cma.CMAEvolutionStrategy(initial_input, sigma0, options)
-
-    while not estimator.stop():
+    start_time = time.time()
+    current_time = time.time() - start_time
+    while current_time < timeout:
         candidates = estimator.ask()  # sample λ candidates
         fitnesses = [objective_function(x) for x in candidates]
         estimator.tell(candidates, fitnesses)  # update means, covariance, sigma
         estimator.logger.add()
         estimator.disp()
 
-    result_normalized = estimator.result.xbest
-    best_vector = denormalize(result_normalized, lower_bounds, upper_bounds)
+        result_normalized = estimator.result.xbest
+        best_vector = denormalize(result_normalized, lower_bounds, upper_bounds)
+        best_value = evaluator.fitness(best_vector)[0]
+        current_time = time.time() - start_time
+        if best_value < UNFEASIBILITY_VALUE:
+            best_values_list.append(best_value)
+            time_list.append(current_time)
+
     return (
         best_vector,
-        evaluator.fitness(best_vector)[0],
+        best_value,
+        best_values_list,
+        time_list,
     )
 
 
-def bee_colony_pygmo(
-    bounds: list, planets_sequence: list, n_generations: int = 2500, *args, **kwargs
-):
-    """
-    Use the PyGMO built-in Covariance Matrix Adaptation Evolution Strategy
-    """
-    planets_sequence = [
-        pk.planet(pk.udpla.jpl_lp(planet)) for planet in planets_sequence
-    ]
-    evaluator = pk.trajopt.mga(
-        planets_sequence,
-        list(bounds[0]),
-        [list(element) for element in bounds[1:]],
-        vinf=DV_LAUNCHER,
-    )
-
-    # Setting up
-    problem = pg.problem(evaluator)
-    solver = pg.bee_colony(gen=n_generations, limit=20)
-    algorithm = pg.algorithm(solver)
-    result = list()
-
-    # Running algorithm
-    for i in range(10):
-        pop = pg.population(problem, 20)
-        pop = algorithm.evolve(pop)
-        result.append([pop.champion_f, pop.champion_x])
-        # print(i, pop.champion_f[0], flush=True)
-
-    best_value = sorted(result, key=lambda x: x[0][0])[0][0][0]
-    best_x = sorted(result, key=lambda x: x[0][0])[0][1]
-
-    return best_x, best_value
-
-
-def cmaes_pygmo(
-    bounds: list, planets_sequence: list, n_iterations: int = 1500, *args, **kwargs
-):
-    """
-    Use the PyGMO built-in Covariance Matrix Adaptation Evolution Strategy
-    """
-    planets_sequence = [
-        pk.planet(pk.udpla.jpl_lp(planet)) for planet in planets_sequence
-    ]
-    evaluator = pk.trajopt.mga(
-        planets_sequence,
-        list(bounds[0]),
-        [list(element) for element in bounds[1:]],
-        vinf=DV_LAUNCHER,
-    )
-
-    # Setting up
-    problem = pg.problem(evaluator)
-    solver = pg.cmaes(n_iterations, force_bounds=True, sigma0=0.5, ftol=1e-4)
-    algorithm = pg.algorithm(solver)
-    result = list()
-
-    # Running algorithm
-    for i in range(10):
-        pop = pg.population(problem, 20)
-        pop = algorithm.evolve(pop)
-        result.append([pop.champion_f, pop.champion_x])
-        # print(i, pop.champion_f[0], flush=True)
-
-    best_value = sorted(result, key=lambda x: x[0][0])[0][0][0]
-    best_x = sorted(result, key=lambda x: x[0][0])[0][1]
-
-    return best_x, best_value
-
-
-def sade_pygmo(
-    bounds: list, planets_sequence: list, n_iterations: int = 2500, *args, **kwargs
-):
-    """
-    Use the PyGMO built-in Self Adaptive Differential Evolution
-    """
-    planets_sequence = [
-        pk.planet(pk.udpla.jpl_lp(planet)) for planet in planets_sequence
-    ]
-    evaluator = pk.trajopt.mga(
-        planets_sequence,
-        list(bounds[0]),
-        [list(element) for element in bounds[1:]],
-        vinf=DV_LAUNCHER,
-    )
-    # Setting up
-    problem = pg.problem(evaluator)
-    solver = pg.sade(n_iterations, ftol=1e-4, xtol=1e-4)
-    algorithm = pg.algorithm(solver)
-    result = list()
-
-    # Running algorithm
-    for i in range(10):
-        pop = pg.population(problem, 20)
-        pop = algorithm.evolve(pop)
-        result.append([pop.champion_f, pop.champion_x])
-        # print(i, pop.champion_f[0], flush=True)
-
-    best_value = sorted(result, key=lambda x: x[0][0])[0][0][0]
-    best_x = sorted(result, key=lambda x: x[0][0])[0][1]
-
-    return best_x, best_value
-
-
-def gaco_pygmo(
-    bounds: list,
-    planets_sequence: list,
-    n_iterations: int = 2500,
-    kernel_size: int = 10,
-    learning_rate: float = 0.01,
+def pygmo_baseline(
+    evaluator: pk.trajopt.mga,
+    timeout: float = 10,
+    solver: str = "sga",
     *args,
     **kwargs,
 ):
-    """
-    Use the PyGMO built-in Extended Ant Colony Optimization
-    """
-    planets_sequence = [
-        pk.planet(pk.udpla.jpl_lp(planet)) for planet in planets_sequence
-    ]
-    evaluator = pk.trajopt.mga(
-        planets_sequence,
-        list(bounds[0]),
-        [list(element) for element in bounds[1:]],
-        vinf=DV_LAUNCHER,
-    )
+
     # Setting up
     problem = pg.problem(evaluator)
-    solver = pg.gaco(gen=n_iterations, ker=kernel_size, q=learning_rate, oracle=1e9)
-    algorithm = pg.algorithm(solver)
-    result = list()
-
-    # Running algorithm
-    for i in range(10):
-        pop = pg.population(problem, 20)
-        pop = algorithm.evolve(pop)
-        result.append([pop.champion_f, pop.champion_x])
-        # print(i, pop.champion_f[0], flush=True)
-
-    best_value = sorted(result, key=lambda x: x[0][0])[0][0][0]
-    best_x = sorted(result, key=lambda x: x[0][0])[0][1]
-
-    return best_x, best_value
-
-
-def genetic_pygmo(
-    bounds: list,
-    planets_sequence: list,
-    n_generations: int = 2500,
-    mutation_probability: float = 0.1,
-    *args,
-    **kwargs,
-):
-    """
-    Use the PyGMO built-in Simple Genetic Algorithm
-    """
-    planets_sequence = [
-        pk.planet(pk.udpla.jpl_lp(planet)) for planet in planets_sequence
-    ]
-    evaluator = pk.trajopt.mga(
-        planets_sequence,
-        list(bounds[0]),
-        [list(element) for element in bounds[1:]],
-        vinf=DV_LAUNCHER,
+    solver = PYGMO_SOLVERS[solver]["function"](
+        **PYGMO_SOLVERS[solver]["solver_parameters"]
     )
-    # Setting up
-    problem = pg.problem(evaluator)
-    solver = pg.sga(gen=n_generations, m=mutation_probability)
     algorithm = pg.algorithm(solver)
-    result = list()
+    time_list, best_values_list = list(), list()
+    best_x = None
+    best_value = UNFEASIBILITY_VALUE
+    pop = pg.population(problem, 20)
+    start_time = time.time()
+    current_time = time.time() - start_time
 
     # Running algorithm
-    for i in range(10):
+    while current_time < timeout:
         pop = pg.population(problem, 20)
+        if best_x is not None:
+            pop.push_back(best_x)
         pop = algorithm.evolve(pop)
-        result.append([pop.champion_f, pop.champion_x])
-        # print(i, pop.champion_f[0], flush=True)
+        if np.linalg.norm(pop.champion_f) < best_value:
+            best_x = deepcopy(pop.champion_x)
+            best_value = np.linalg.norm(pop.champion_f)
+        if best_value < UNFEASIBILITY_VALUE:
+            best_values_list.append(best_value)
+        current_time = time.time() - start_time
+        time_list.append(current_time)
+    print("Best sequence: ", best_x)
+    print("Best value: ", best_value)
+    print("Computed fitness: ", evaluator.fitness(best_x)[0])
 
-    best_value = sorted(result, key=lambda x: x[0][0])[0][0][0]
-    best_x = sorted(result, key=lambda x: x[0][0])[0][1]
-
-    return best_x, best_value
-
-
-def pso_gen_pygmo(
-    bounds: list,
-    planets_sequence: list,
-    n_generations: int = 5000,
-    *args,
-    **kwargs,
-):
-    """
-    Use the PyGMO built-in Particle Swarm Optimization (Generational)
-    """
-    planets_sequence = [
-        pk.planet(pk.udpla.jpl_lp(planet)) for planet in planets_sequence
-    ]
-    evaluator = pk.trajopt.mga(
-        planets_sequence,
-        list(bounds[0]),
-        [list(element) for element in bounds[1:]],
-        vinf=DV_LAUNCHER,
-    )
-    # Setting up
-    problem = pg.problem(evaluator)
-    solver = pg.pso_gen(gen=n_generations)
-    algorithm = pg.algorithm(solver)
-    result = list()
-
-    # Running algorithm
-    for i in range(10):
-        pop = pg.population(problem, 20)
-        pop = algorithm.evolve(pop)
-        result.append([pop.champion_f, pop.champion_x])
-        # print(i, pop.champion_f[0], flush=True)
-
-    best_value = sorted(result, key=lambda x: x[0][0])[0][0][0]
-    best_x = sorted(result, key=lambda x: x[0][0])[0][1]
-
-    return best_x, best_value
-
-
-def sa_pygmo(
-    bounds: list,
-    planets_sequence: list,
-    *args,
-    **kwargs,
-):
-    """
-    Use the PyGMO built-in Simulated Annealing
-    """
-    planets_sequence = [
-        pk.planet(pk.udpla.jpl_lp(planet)) for planet in planets_sequence
-    ]
-    evaluator = pk.trajopt.mga(
-        planets_sequence,
-        list(bounds[0]),
-        [list(element) for element in bounds[1:]],
-        vinf=DV_LAUNCHER,
-    )
-    # Setting up
-    problem = pg.problem(evaluator)
-    solver = pg.simulated_annealing(Ts=10.0, Tf=1e-5, n_T_adj=100)
-    algorithm = pg.algorithm(solver)
-    result = list()
-
-    # Running algorithm
-    for i in range(10):
-        pop = pg.population(problem, 20)
-        pop = algorithm.evolve(pop)
-        result.append([pop.champion_f, pop.champion_x])
-        # print(i, pop.champion_f[0], flush=True)
-
-    best_value = sorted(result, key=lambda x: x[0][0])[0][0][0]
-    best_x = sorted(result, key=lambda x: x[0][0])[0][1]
-
-    return best_x, best_value
-
-
-# def mbh_pygmo(
-#     bounds: list, planets_sequence: list, n_iterations: int = 2500, *args, **kwargs
-# ):
-#     """
-#     Uses PyGMO built-in Monotonic Basin Hopping
-#     Given by Claude LLM
-#     """
-#     planets_sequence = [
-#         pk.planet(pk.udpla.jpl_lp(planet)) for planet in planets_sequence
-#     ]
-#     evaluator = pk.trajopt.mga(
-#         planets_sequence,
-#         list(bounds[0]),
-#         [list(element) for element in bounds[1:]],
-#         vinf=DV_LAUNCHER,
-#     )
-#     # Setting up
-#     problem = pg.problem(evaluator)
-#     algorithm  = pg.algorithm(pg.mbh(pg.algorithm(pg.nlopt("slsqp")), stop=20, perturb=0.1))
-#     pop = pg.population(problem, size=1)
-#     pop.push_back(RANDOM_GENERATOR.uniform())
-#     pop = algo.evolve(pop)
+    return best_x, best_value, best_values_list, time_list
 
 
 def genetic_algorithm(
