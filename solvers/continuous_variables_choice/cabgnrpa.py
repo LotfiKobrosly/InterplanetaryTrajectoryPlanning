@@ -307,7 +307,7 @@ def run_cabgnrpa(
             biases_values=biases_values,
             bounds=bounds,
             planets_sequence=planets_sequence,
-            std_factor=0.01 + np.exp(-current_iteration),
+            std_factor=0.01 + 1 / np.sqrt(current_iteration + 1),
             tau=tau,
             gamma=gamma,
         )

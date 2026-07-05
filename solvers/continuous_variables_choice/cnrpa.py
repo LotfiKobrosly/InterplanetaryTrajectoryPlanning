@@ -216,7 +216,7 @@ def run_cnrpa(
             policy=policy,
             bounds=bounds,
             planets_sequence=planets_sequence,
-            std_factor=0.01 + np.exp(-current_iteration),
+            std_factor=0.01 + 1 / np.sqrt(current_iteration + 1),
         )
 
         return (

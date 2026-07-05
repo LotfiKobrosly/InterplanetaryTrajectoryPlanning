@@ -63,6 +63,8 @@ def run_cnmcts(
                 if best_value < UNFEASIBILITY_VALUE:
                     best_values_list.append(best_value)
                     time_list.append(current_time)
+                if current_time > timeout:
+                    break
             values_sequence.append(best_sequence[len(values_sequence)])
         return (best_sequence, best_value)
 

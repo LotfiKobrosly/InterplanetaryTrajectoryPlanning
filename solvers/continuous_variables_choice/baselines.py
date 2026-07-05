@@ -193,9 +193,6 @@ def pygmo_baseline(
             best_values_list.append(best_value)
         current_time = time.time() - start_time
         time_list.append(current_time)
-    print("Best sequence: ", best_x)
-    print("Best value: ", best_value)
-    print("Computed fitness: ", evaluator.fitness(best_x)[0])
 
     return best_x, best_value, best_values_list, time_list
 

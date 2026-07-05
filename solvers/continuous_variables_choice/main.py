@@ -25,17 +25,19 @@ if __name__ == "__main__":
         "sade": pygmo_baseline,
         "sga": pygmo_baseline,
         "simulated_annealing": pygmo_baseline,
-        "pso": pygmo_baseline,
+        # "pso": pygmo_baseline,
         "gaco": pygmo_baseline,
         "bee_colony": pygmo_baseline,
-        "uniform": uniform_variables_values_vector,
-        "gaussian_cma_es": gaussian_variables_values_vector,
+        # "uniform": uniform_variables_values_vector,
+        # "gaussian_cma_es": gaussian_variables_values_vector,
         "cnmcts": cnmcts,
         "cnrpa": cnrpa,
         "cgnrpa": cgnrpa,
         "cabgnrpa": cabgnrpa,
-        "genetic": genetic_algorithm,
+        # "genetic": genetic_algorithm,
     }
+
+    algorithms_list = list(SAMPLING_FUNCTIONS.keys())
 
     SAMPLING_FUNCTIONS_NAMES = {
         "cmaes": "Covariance Matrix Adaptation Evolution Strategy (pygmo)",
@@ -51,7 +53,7 @@ if __name__ == "__main__":
         "cnrpa": "cNRPA",
         "cgnrpa": "cGNRPA",
         "cabgnrpa": "cABGNRPA",
-        "genetic": "Custom Genetic Algorithm",
+        # "genetic": "Custom Genetic Algorithm",
     }
 
     # Cassini problem
@@ -84,7 +86,7 @@ if __name__ == "__main__":
     }
 
     # Timeouts list
-    timeouts_list = [1, 5, 10, 30, 60, 300, 600]
+    timeouts_list = [1, 5, 10, 30, 60]  # , 300, 600]
 
     # Specific parameters
     algorithm_parameters = {
@@ -95,52 +97,61 @@ if __name__ == "__main__":
         "gaco": {"solver": "gaco"},
         "bee_colony": {"solver": "bee_colony"},
         "simulated_annealing": {"solver": "simulated_annealing"},
-        "uniform": {"n_iterations": 10000},
-        "gaussian_cma_es": {"n_iterations": 1500},
-        "cnmcts": {"level": 2, "bandwidth": 200},
-        "cnrpa": {"level": 2, "n_policies": 1000, "learning_rate": 0.1},
+        "uniform": {},
+        "gaussian_cma_es": {},
+        "cnmcts": {"level": 1, "bandwidth": int(5e6)},
+        "cnrpa": {"level": 1, "n_policies": int(1e12), "learning_rate": 0.5},
         "cgnrpa": {
-            "level": 2,
-            "n_policies": 300,
-            "learning_rate": 0.1,
-            "tau": 10,
+            "level": 1,
+            "n_policies": int(1e12),
+            "learning_rate": 0.5,
+            "tau": 5,
         },
         "cabgnrpa": {
-            "level": 2,
-            "n_policies": 100,
-            "learning_rate": 0.1,
-            "tau": 1,
-            "gamma": 0.2,
+            "level": 1,
+            "n_policies": int(1e12),
+            "learning_rate": 0.5,
+            "tau": 5,
+            "gamma": 0.25,
         },
-        "genetic": {"n_generations": 5000, "mutation_probability": 0.15},
+        # "genetic": {"n_generations": 5000, "mutation_probability": 0.15},
     }
 
-    for algorithm, function in SAMPLING_FUNCTIONS.items():
-        print("\nFor " + algorithm + ":")
-        specific_input_values = deepcopy(inputs_values)
-        for arg, val in algorithm_parameters[algorithm].items():
-            specific_input_values[arg] = val
-        specific_input_values["timeout"] = 10
-        values_sequence, delta_v, best_values_list, time_list = function(
-            **specific_input_values
-        )
-        if delta_v < UNFEASIBILITY_VALUE:
-            print(f"Delta V: {np.linalg.norm(delta_v) / 1000:.3f} km/s")
-            plt.plot(time_list, best_values_list)
-            plt.show()
-            # axe = udp.plot(values_sequence, figsize=(20, 20))
-            # figure = axe.figure
-            # axe.view_init(90, 0)
-            # axe.axis("off")
-            # axe.set_title(
-            #     algorithm.upper()
-            #     + r": $\Delta$V = "
-            #     + f"{udp.fitness(values_sequence)[0] / 1000:.3f} km/s"
-            # )
-            # figure.savefig(
-            #     "./Cassini trials/" + SAMPLING_FUNCTIONS_NAMES[algorithm] + ".png"
-            # )
-            # plt.close(figure)
-            # plt.show()
-        else:
-            print("No valid solution produced")
+    # Storing results
+    results = np.zeros((len(SAMPLING_FUNCTIONS), len(timeouts_list)))
+
+    for algorithm_id, algorithm in enumerate(algorithms_list):
+        for timeout_id, timeout in enumerate(timeouts_list):
+            print("\nFor " + algorithm + ":")
+            specific_input_values = deepcopy(inputs_values)
+            for arg, val in algorithm_parameters[algorithm].items():
+                specific_input_values[arg] = val
+            specific_input_values["timeout"] = timeout
+            values_sequence, delta_v, _, _ = SAMPLING_FUNCTIONS[algorithm](
+                **specific_input_values
+            )
+            results[algorithm_id, timeout_id] = min(delta_v, UNFEASIBILITY_VALUE)
+            if delta_v < UNFEASIBILITY_VALUE:
+                print(f"Delta V: {delta_v / 1000:.3f} km/s")
+
+                # plt.plot(time_list, best_values_list)
+                # plt.show()
+                # axe = udp.plot(values_sequence, figsize=(20, 20))
+                # figure = axe.figure
+                # axe.view_init(90, 0)
+                # axe.axis("off")
+                # axe.set_title(
+                #     algorithm.upper()
+                #     + r": $\Delta$V = "
+                #     + f"{udp.fitness(values_sequence)[0] / 1000:.3f} km/s"
+                # )
+                # figure.savefig(
+                #     "./Cassini trials/" + SAMPLING_FUNCTIONS_NAMES[algorithm] + ".png"
+                # )
+                # plt.close(figure)
+                # plt.show()
+            # else:
+            #     print("No valid solution produced")
+
+    dataframe = pd.DataFrame(results, index=algorithms_list, columns=timeouts_list)
+    dataframe.to_excel("Preliminary results Cassini.xlsx")
