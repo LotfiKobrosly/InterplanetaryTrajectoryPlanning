@@ -3,7 +3,7 @@
 import numpy as np
 
 # Constants used accross the repository
-RANDOM_SEED = 1
+RANDOM_SEED = 42
 RANDOM_GENERATOR = np.random.default_rng(seed=RANDOM_SEED)
 GAUSSIAN_KERNEL_THRESHOLD = 0.05
 

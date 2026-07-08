@@ -318,11 +318,12 @@ def run_cabgnrpa(
         )
     else:
         current_policy = deepcopy(policy)
+        current_biases_values = deepcopy(biases_values)
         for current_iteration in range(n_policies):
             values_sequence, states_sequence, total_delta_v = run_cabgnrpa(
                 evaluator=evaluator,
                 policy=current_policy,
-                biases_values=biases_values,
+                biases_values=current_biases_values,
                 level=level - 1,
                 n_policies=n_policies,
                 planets_sequence=planets_sequence,
@@ -399,3 +400,37 @@ def cabgnrpa(
         gamma=gamma,
     )
     return best_values_sequence, best_value, best_values_list, time_list
+
+if __name__ == "__main__":
+    # Cassini problem
+    udp = pk.trajopt.gym.cassini1
+    planets_sequence = [
+        pk.planet(pk.udpla.jpl_lp("Earth")),
+        pk.planet(pk.udpla.jpl_lp("Venus")),
+        pk.planet(pk.udpla.jpl_lp("Venus")),
+        pk.planet(pk.udpla.jpl_lp("Earth")),
+        pk.planet(pk.udpla.jpl_lp("Jupiter")),
+        pk.planet(pk.udpla.jpl_lp("Saturn")),
+    ]
+
+    # Variables bounds
+    bounds = [
+        (low_bound, high_bound)
+        for (low_bound, high_bound) in zip(udp.get_bounds()[0], udp.get_bounds()[1])
+    ]
+
+    # General input values
+    inputs_values = {
+        "evaluator": udp,
+        "planets_sequence": planets_sequence,
+        "bounds": bounds,
+        "timeout": 300,
+        "level": 2,
+        "learning_rate": 0.1,
+        "n_policies": 100,
+        "tau": 5,
+        "gamma": 0.5,
+    }
+    values__sequence, best_value, values_list, time_list = cabgnrpa(**inputs_values)
+    print(r"Best $ \Delta V$:")
+    print(f"{best_value / 1000:.3f} km/s")
