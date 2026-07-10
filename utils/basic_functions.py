@@ -45,7 +45,7 @@ def truncate(value, min_value, max_value):
         return value
 
 
-def fit_gaussian_from_density(x, density_values):
+def fit_gaussian_from_density(x, density_values, std_factor: float = 1):
     """
     From Claude LLM
     x               : equally spaced points
@@ -59,7 +59,7 @@ def fit_gaussian_from_density(x, density_values):
 
     mu = np.sum(p_norm * x)
     var = np.sum(p_norm * (x - mu) ** 2)
-    sigma = np.sqrt(var)
+    sigma = std_factor * np.sqrt(var)
 
     return mu, sigma
 

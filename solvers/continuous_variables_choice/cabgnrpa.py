@@ -48,7 +48,6 @@ def adaptive_bias_policy_playout(
     biases_values: dict,
     bounds: list,
     planets_sequence: list = None,
-    states_sequence: list = list(),
     std_factor: float = 1,
     tau: float = 10,
     gamma: float = 0.1,
@@ -90,7 +89,7 @@ def adaptive_bias_policy_playout(
             # Policy candidate
             if policy:
                 current_policy = policy[advancement]
-                gaussian_kernel = GaussianKernel(states_sequence[-1], sigma=std_factor)
+                gaussian_kernel = GaussianKernel(states_sequence, sigma=std_factor)
                 values, weights = list(), list()
                 for key in current_policy.keys():
                     if isinstance(current_policy[key], (float, int)):
@@ -123,7 +122,7 @@ def adaptive_bias_policy_playout(
             epoch_list.append(epoch_list[-1] + chosen_value)
             planet_radius, planet_velocity = planet.eph(epoch_list[-1])
             planets_velocities_list.append(planet_velocity)
-            current_state = states_sequence[-1]
+            current_state = states_sequence[:]
             planet_name = planets_sequence[advancement - 1].get_name()[:-8]
 
             if (advancement > 1) and (advancement < (len(planets_sequence) - 1)):
@@ -249,24 +248,13 @@ def adaptive_bias_policy_playout(
                     planet_name
                 ]  # 8 because get_name returns 'planet(jpl_elp)'
             )
-            current_state = (
-                *code(
-                    normalize(
-                        last_arrival_velocity,
-                        np.zeros(np.shape(last_arrival_velocity)),
-                        VELOCITY_NORMALIZING_FACTOR
-                        * np.ones(np.shape(last_arrival_velocity)),
-                    )
-                ),
-                *code(
-                    normalize(
-                        planets_radii_list[-1],
-                        np.full((3,), min_radius),
-                        np.full((3,), max_radius),
-                    )
-                ),
+            states_sequence.append(
+                normalize(
+                    chosen_value,
+                    low_bound,
+                    high_bound,
+                )
             )
-            states_sequence.append(current_state)
 
             planets_radii_list.append(planet_radius)
             planets_velocities_list.append(planet_velocity)
@@ -369,7 +357,6 @@ def cabgnrpa(
     n_policies: int = 10,
     bounds: list = None,
     planets_sequence: list = None,
-    current_iteration: int = 0,
     learning_rate: float = 0.01,
     timeout: float = 10,
     tau: float = 10,
@@ -432,5 +419,4 @@ if __name__ == "__main__":
         "gamma": 0.5,
     }
     values__sequence, best_value, values_list, time_list = cabgnrpa(**inputs_values)
-    print(r"Best $ \Delta V$:")
-    print(f"{best_value / 1000:.3f} km/s")
+    print(f"Best Delta V: {best_value / 1000:.3f} km/s")

@@ -97,3 +97,34 @@ def cnmcts(
     )
 
     return best_sequence, best_value, best_values_list, time_list
+
+if __name__ == "__main__":
+    # Cassini problem
+    udp = pk.trajopt.gym.cassini1
+    planets_sequence = [
+        pk.planet(pk.udpla.jpl_lp("Earth")),
+        pk.planet(pk.udpla.jpl_lp("Venus")),
+        pk.planet(pk.udpla.jpl_lp("Venus")),
+        pk.planet(pk.udpla.jpl_lp("Earth")),
+        pk.planet(pk.udpla.jpl_lp("Jupiter")),
+        pk.planet(pk.udpla.jpl_lp("Saturn")),
+    ]
+
+    # Variables bounds
+    bounds = [
+        (low_bound, high_bound)
+        for (low_bound, high_bound) in zip(udp.get_bounds()[0], udp.get_bounds()[1])
+    ]
+
+    # General input values
+    inputs_values = {
+        "evaluator": udp,
+        "planets_sequence": planets_sequence,
+        "bounds": bounds,
+        "timeout": 300,
+        "level": 2,
+        "learning_rate": 0.1,
+        "bandwidth": 300,
+    }
+    values__sequence, best_value, values_list, time_list = cnmcts(**inputs_values)
+    print(f"Best Delta V: {best_value / 1000:.3f} km/s")

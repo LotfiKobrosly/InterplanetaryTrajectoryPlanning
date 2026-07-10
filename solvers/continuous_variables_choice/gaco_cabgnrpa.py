@@ -1,72 +1,74 @@
 """
-Implements Continuous Nested Rollout Policy for continuous variables' values choice.
-We will be implementing the Gaussian Kernel based variant
-Here, the values sequence is represented as follows:
-values_sequence = [departure_epoch, time_of_flight_0, ..., time_of_flight_n]
-
-Values stored in the policy will be normalized between 0 and 1 to account for the huge differences in dimensions
-
-Two variations are proposed:
-- A state independent variation: we advance through the sequence, where for each step, we have a central value (of the corresponding
-dimension) and we sample around it using a normal distribution (parameters are then the mean and the standard deviation)
-- A state dependent variation:
-    * In the first step we choose the departure epoch, which happend in a similar fashion to the other variation
-    * In the second step, we take the departure epoch as our "state", and we compute the value of time_of_flight
-    of the next encounter (second planet in the sequence) by using a gaussian kernel from the other states existing in this step, then we sample
-    around it using a normal distribution
-    * In the remaining steps, the state will become the departure velocity from the planet to the next one, computed from the lambert leg and
-    subsequent gravity assist impulse. Simlarly to the previous step, we compute time_of_flight by sampling with a normal
-    distribution around a mean computed with a gaussian kernel
+Implements a modified version of a GcABGNRPA, aided with GACO (see pygmo documentation)
 """
-
 import time
 from copy import deepcopy
 import numpy as np
 import pykep as pk
+import pygmo as pg
 from utils.constants import (
     GAUSSIAN_KERNEL_THRESHOLD,
+    RANDOM_SEED,
     RANDOM_GENERATOR,
     VELOCITY_NORMALIZING_FACTOR,
     DV_LAUNCHER,
     UNFEASIBILITY_VALUE,
+    N_CANDIDATES,
 )
-from utils.basic_functions import normalize, denormalize, code, truncate
-from utils.gaussian_kernel import (
-    GaussianKernel,
-)
+from utils.basic_functions import *
+from utils.gaussian_kernel import GaussianKernel
+from solvers.continuous_variables_choice.cnrpa import adapt_policy
 
 
-def policy_playout(
-    policy: dict,
-    bounds: list,
+def gaco_cabgnrpa_playout(
+    policy: dict = dict(),
+    bias_value: np.ndarray = None,
+    bias_std: float = 1.0,
+    bounds: list = None,
     planets_sequence: list = None,
+    states_sequence: list = list(),
     std_factor: float = 1,
+    tau: float = 10,
 ):
     values_sequence, states_sequence = list(), list()
-    epoch_list, planets_radii_list = list(), list()
+    epoch_list, planets_radii_list, planets_velocities_list = list(), list(), list()
+    last_arrival_velocity = None
     for advancement, planet in enumerate(planets_sequence):
         # Get bounds
         low_bound, high_bound = bounds[advancement]
 
         # Choose departure epoch
         if advancement == 0:
+            # No state defined
             if policy:
-                chosen_value = round(
-                    denormalize(
-                        RANDOM_GENERATOR.normal(policy[0], std_factor),
-                        low_bound,
-                        high_bound,
-                    )
+                chosen_value = truncate(
+                    sample_mixture_1d(
+                        n_samples=1,
+                        mu1=denormalize(
+                            RANDOM_GENERATOR.normal(policy[0], std_factor),
+                            low_bound,
+                            high_bound,
+                        ),
+                        sigma1=std_factor * (high_bound - low_bound),
+                        mu2=bias_value[0],
+                        sigma2=bias_std[0],
+                        weight1=1 / tau,
+                    )[0],
+                    low_bound,
+                    high_bound,
                 )
             else:
                 chosen_value = RANDOM_GENERATOR.uniform(low_bound, high_bound)
 
             epoch_list.append(chosen_value)
-            radius, _ = planets_sequence[0].eph(chosen_value)
+            radius, velocity = planets_sequence[0].eph(chosen_value)
             planets_radii_list.append(radius)
+            planets_velocities_list.append(velocity)
             states_sequence.append(normalize(chosen_value, low_bound, high_bound))
+            last_arrival_velocity = velocity
 
         else:
+            # Policy candidate
             if policy:
                 current_policy = policy[advancement]
                 gaussian_kernel = GaussianKernel(states_sequence, sigma=std_factor)
@@ -83,25 +85,36 @@ def policy_playout(
                 if values:
                     weights = np.array(weights)
                     weights /= np.sum(weights)
-                    chosen_value = truncate(
-                        denormalize(
-                            RANDOM_GENERATOR.normal(
-                                weights @ np.array(values).T, std_factor
-                            ),
-                            low_bound,
-                            high_bound,
+                    policy_weights_candidate = denormalize(
+                        RANDOM_GENERATOR.normal(
+                            weights @ np.array(values).T, std_factor
                         ),
                         low_bound,
                         high_bound,
                     )
                 else:
-                    chosen_value = RANDOM_GENERATOR.uniform(low_bound, high_bound)
+                    policy_weights_candidate = RANDOM_GENERATOR.uniform(low_bound, high_bound)
             else:
-                chosen_value = RANDOM_GENERATOR.uniform(low_bound, high_bound)
+                policy_weights_candidate = RANDOM_GENERATOR.uniform(low_bound, high_bound)
 
-            # Computing Lambert leg
+            # Choose value
+            chosen_value = truncate(
+                sample_mixture_1d(
+                    n_samples=1,
+                    mu1=policy_weights_candidate,
+                    sigma1=denormalize(std_factor, low_bound, high_bound),
+                    mu2=bias_value[advancement],
+                    sigma2=bias_std[advancement],
+                    weight1=1 / tau,
+                )[0],
+                low_bound,
+                high_bound,
+            )
             epoch_list.append(epoch_list[-1] + chosen_value)
             planet_radius, planet_velocity = planet.eph(epoch_list[-1])
+            planets_velocities_list.append(planet_velocity)
+
+            # Computing next state
             lambert_leg = pk.lambert_problem(
                 tof=chosen_value * pk.DAY2SEC,
                 r0=planets_radii_list[-1],
@@ -110,7 +123,11 @@ def policy_playout(
                 cw=False,
                 multi_revs=0,
             )
+
             arrival_velocity = np.array(lambert_leg.v1[0])
+            planets_radii_list.append(planet_radius)
+
+            last_arrival_velocity = arrival_velocity
             states_sequence.append(
                 normalize(
                     chosen_value,
@@ -122,77 +139,14 @@ def policy_playout(
         values_sequence.append(chosen_value)
     return values_sequence, states_sequence
 
-
-def adapt_policy(
-    best_values_sequence: list,
-    best_states_sequence: list,
-    policy: dict,
-    learning_rate: float = 0.01,
-    bounds: list = None,
-):
-    if policy:
-        for advancement, element in enumerate(best_values_sequence):
-            low_bound, high_bound = bounds[advancement]
-            if advancement == 0:
-                policy[advancement] += learning_rate * (
-                    normalize(element, low_bound, high_bound) - policy[advancement]
-                )
-            else:
-                current_key = code(best_states_sequence[:advancement])
-                if current_key in policy[advancement].keys():
-                    previous_value = policy[advancement][current_key]
-                    policy[advancement][current_key] = (
-                        previous_value
-                        + learning_rate
-                        * (normalize(element, low_bound, high_bound) - previous_value)
-                    )
-                else:
-                    policy[advancement][current_key] = normalize(
-                        element, low_bound, high_bound
-                    )
-                gaussian_kernel = GaussianKernel(current_key, 0.2)
-                for key in policy[advancement].keys():
-                    weight = gaussian_kernel.pdf(key)
-                    if weight >= GAUSSIAN_KERNEL_THRESHOLD:
-                        previous_value = policy[advancement][key]
-                        policy[advancement][key] = (
-                            previous_value
-                            + learning_rate
-                            * weight
-                            * (
-                                normalize(element, low_bound, high_bound)
-                                - previous_value
-                            )
-                        )
-
-    else:
-        for advancement, element in enumerate(best_values_sequence):
-            low_bound, high_bound = bounds[advancement]
-            if advancement == 0:
-                policy[advancement] = normalize(element, low_bound, high_bound)
-            else:
-                try:
-                    policy[advancement] = {
-                        code(best_states_sequence[:advancement]): normalize(
-                            element, low_bound, high_bound
-                        )
-                    }
-                except IndexError:
-                    print(
-                        "Size values sequence: "
-                        + str(len(best_values_sequence))
-                        + ", vs states sequence: "
-                        + str(len(best_states_sequence))
-                    )
-                    raise IndexError
-    return policy
-
-
-def run_cnrpa(
+def run_gaco_cabgnrpa(
     evaluator: pk.trajopt.mga,
     policy: dict = dict(),
+    biases_values: list = None,
+    bias_handler: pg.algorithm = None,
     level: int = 0,
     n_policies: int = 10,
+    zeta: float = 0.2,
     bounds: list = None,
     planets_sequence: list = None,
     current_iteration: int = 0,
@@ -204,35 +158,62 @@ def run_cnrpa(
     best_value: float = UNFEASIBILITY_VALUE,
     best_values_list: list = None,
     time_list: list = None,
+    tau: float = 10,
     *args,
     **kwargs,
 ):
     assert not (planets_sequence is None), "planets_sequence is None"
     assert not (bounds is None), "bounds is None"
+    assert not (bias_handler is None), "No algorithm specified or given as argument"
     current_time = time.time() - start_time
     if level == 0:
+        # GACO iteration
+        biases_values = bias_handler.evolve(biases_values)
+        bias_values = biases_values.get_x().copy()
+        bias_fitness = biases_values.get_f().copy()
 
-        values_sequence, states_sequence = policy_playout(
+        # Get bias value
+        density_values = 1 / np.array(bias_fitness).flatten()
+        density_values /= density_values.sum()
+        bias = list()
+        bias_std = list()
+        for dimension in range(len(planets_sequence)):
+
+            bias_center, bias_sigma = fit_gaussian_from_density(
+                bias_values[:,dimension], density_values, zeta,
+            )
+            bias.append(bias_center)
+            bias_std.append(bias_sigma)
+        values_sequence, states_sequence = gaco_cabgnrpa_playout(
             policy=policy,
+            bias_value=bias,
+            bias_std=bias_std,
             bounds=bounds,
             planets_sequence=planets_sequence,
-            std_factor=0.01 + 1 / np.sqrt(current_iteration + 1),
+            std_factor=0.01 + 1 / np.log(current_iteration + 1),
+            tau=tau,
         )
-
         return (
             values_sequence,
             states_sequence,
             evaluator.fitness(values_sequence)[0],
         )
-
     else:
+        # Save current policy
         current_policy = deepcopy(policy)
+        current_biases_values = deepcopy(biases_values)
+
         for current_iteration in range(n_policies):
-            values_sequence, states_sequence, total_delta_v = run_cnrpa(
+            if level > 1:
+                print("Iteration", current_iteration + 1, "of level", level, "done")
+            values_sequence, states_sequence, total_delta_v = run_gaco_cabgnrpa(
                 evaluator=evaluator,
                 policy=current_policy,
+                biases_values=current_biases_values,
+                bias_handler=bias_handler,
                 level=level - 1,
                 n_policies=n_policies,
+                zeta=zeta,
                 planets_sequence=planets_sequence,
                 bounds=bounds,
                 current_iteration=current_iteration,
@@ -243,6 +224,7 @@ def run_cnrpa(
                 best_value=best_value,
                 best_values_list=best_values_list,
                 time_list=time_list,
+                tau=tau,
             )
             if total_delta_v < best_value:
                 best_value = total_delta_v
@@ -264,11 +246,12 @@ def run_cnrpa(
         return (
             best_values_sequence,
             best_states_sequence,
-            best_value,
+            evaluator.fitness(best_values_sequence)[0],
         )
+            
 
 
-def cnrpa(
+def gaco_cabgnrpa(
     evaluator: pk.trajopt.mga,
     level: int = 0,
     n_policies: int = 10,
@@ -276,15 +259,39 @@ def cnrpa(
     planets_sequence: list = None,
     learning_rate: float = 0.01,
     timeout: float = 10,
+    zeta: float = 0.2,
+    kernel_size: int = 63,
+    n_generations: int = 10,
+    elitism_factor: float = 1.0,
+    tau: float = 10,
     *args,
     **kwargs,
 ):
+    # Define GACO bias generator
+    problem = pg.problem(evaluator)
+    bias_handler = pg.algorithm(
+        pg.gaco(
+            gen=n_generations,
+            ker=kernel_size,
+            q=elitism_factor,
+            seed=RANDOM_SEED,
+            memory=True
+        )
+    )
+    biases_values = pg.population(problem, size=kernel_size, seed=RANDOM_SEED)
+
+    # Launch stopwatch
     start_time = time.time()
     best_values_list, time_list = list(), list()
-    best_values_sequence, best_states_sequence, best_value = run_cnrpa(
+
+    # Launch solver
+    best_values_sequence, best_states_sequence, best_value = run_gaco_cabgnrpa(
         evaluator=evaluator,
         policy=dict(),
+        biases_values=biases_values,
+        bias_handler=bias_handler,
         level=level,
+        zeta=zeta,
         n_policies=n_policies,
         bounds=bounds,
         planets_sequence=planets_sequence,
@@ -297,6 +304,7 @@ def cnrpa(
         best_value=UNFEASIBILITY_VALUE,
         best_values_list=best_values_list,
         time_list=time_list,
+        tau=tau,
     )
     return best_values_sequence, best_value, best_values_list, time_list
 
@@ -323,10 +331,15 @@ if __name__ == "__main__":
         "evaluator": udp,
         "planets_sequence": planets_sequence,
         "bounds": bounds,
-        "timeout": 60,
+        "timeout": 300,
         "level": 1,
-        "learning_rate": 0.5,
+        "learning_rate": 0.1,
         "n_policies": 20000,
+        "tau": 1,
+        "zeta": 0.2,
+        "kernel_size": 50,
+        "n_generations": 10,
+        "elitism_factor": 0.2,
     }
-    values__sequence, best_value, values_list, time_list = cnrpa(**inputs_values)
+    values__sequence, best_value, values_list, time_list = gaco_cabgnrpa(**inputs_values)
     print(f"Best Delta V: {best_value / 1000:.3f} km/s")

@@ -76,7 +76,7 @@ def biased_policy_playout(
             # Policy candidate
             if policy:
                 current_policy = policy[advancement]
-                gaussian_kernel = GaussianKernel(states_sequence[-1], sigma=std_factor)
+                gaussian_kernel = GaussianKernel(states_sequence, sigma=std_factor)
                 values, weights = list(), list()
                 for key in current_policy.keys():
                     if isinstance(current_policy[key], (float, int)):
@@ -181,9 +181,9 @@ def biased_policy_playout(
             last_arrival_velocity = arrival_velocity
             states_sequence.append(
                 normalize(
-                    arrival_velocity,
-                    np.zeros(np.shape(arrival_velocity)),
-                    VELOCITY_NORMALIZING_FACTOR * np.ones(np.shape(arrival_velocity)),
+                    chosen_value,
+                    low_bound,
+                    high_bound,
                 )
             )
 
@@ -278,7 +278,6 @@ def cgnrpa(
     n_policies: int = 10,
     bounds: list = None,
     planets_sequence: list = None,
-    current_iteration: int = 0,
     learning_rate: float = 0.01,
     timeout: float = 10,
     tau: float = 10,
@@ -330,12 +329,11 @@ if __name__ == "__main__":
         "evaluator": udp,
         "planets_sequence": planets_sequence,
         "bounds": bounds,
-        "timeout": 300,
+        "timeout": 60,
         "level": 2,
         "learning_rate": 0.1,
-        "n_policies": 100,
-        "tau": 5,
+        "n_policies": 300,
+        "tau": 2,
     }
     values__sequence, best_value, values_list, time_list = cgnrpa(**inputs_values)
-    print(r"Best $ \Delta V$:")
-    print(f"{best_value / 1000:.3f} km/s")
+    print(f"Delta V: {best_value / 1000:.3f} km/s")
