@@ -23,7 +23,6 @@ import time
 from copy import deepcopy
 import numpy as np
 import pykep as pk
-from multiprocessing import Pool
 from utils.constants import (
     GAUSSIAN_KERNEL_THRESHOLD,
     RANDOM_GENERATOR,
@@ -283,7 +282,7 @@ def cnrpa(
 
 if __name__ == "__main__":
     # Cassini problem
-    udp = pk.trajopt.gym.cassini1
+    udp = pk.trajopt.gym.cassini2
 
     # Variables bounds
     bounds = [
@@ -296,9 +295,9 @@ if __name__ == "__main__":
         "evaluator": udp,
         "bounds": bounds,
         "timeout": 30,
-        "level": 1,
+        "level": 2,
         "learning_rate": 0.1,
-        "n_policies": 10000,
+        "n_policies": 200,
     }
     values__sequence, best_value, values_list, time_list = cnrpa(**inputs_values)
     print(f"Best Delta V: {best_value / 1000:.3f} km/s")

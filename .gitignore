@@ -10,3 +10,10 @@ scratch*
 *.xlsx
 *outcmaes*
 *Cassini*
+*build*
+*linux-gnu.so*
+*.png
+*.jpeg
+*.jpg
+*CMake*
+

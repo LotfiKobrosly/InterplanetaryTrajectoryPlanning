@@ -110,9 +110,8 @@ if __name__ == "__main__":
         "evaluator": udp,
         "bounds": bounds,
         "timeout": 10,
-        "level": 3,
-        "learning_rate": 0.1,
-        "bandwidth": 50,
+        "level": 2,
+        "bandwidth": 200,
     }
     values__sequence, best_value, values_list, time_list = cnmcts(**inputs_values)
     print(f"Best Delta V: {best_value / 1000:.3f} km/s")
