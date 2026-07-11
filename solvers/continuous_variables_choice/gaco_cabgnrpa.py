@@ -163,8 +163,6 @@ def run_gaco_cabgnrpa(
             )
             bias.append(bias_center)
             bias_std.append(bias_sigma)
-            if bias_sigma < 0:
-                print("Here: ", bias_sigma)
         values_sequence, states_sequence = gaco_cabgnrpa_playout(
             policy=policy,
             bias_value=bias,
@@ -184,8 +182,6 @@ def run_gaco_cabgnrpa(
         current_biases_values = deepcopy(biases_values)
 
         for current_iteration in range(n_policies):
-            if level > 1:
-                print("Iteration", current_iteration + 1, "of level", level, "done")
             values_sequence, states_sequence, total_delta_v = run_gaco_cabgnrpa(
                 evaluator=evaluator,
                 policy=current_policy,
@@ -300,12 +296,12 @@ if __name__ == "__main__":
         "evaluator": udp,
         "bounds": bounds,
         "timeout": 60,
-        "level": 1,
+        "level": 2,
         "learning_rate": 0.25,
-        "n_policies": 10000,
-        "tau": 1,
+        "n_policies": 100,
+        "tau": 1.3,
         "zeta": 0.2,
-        "kernel_size": 50,
+        "kernel_size": 63,
         "n_generations": 10,
         "elitism_factor": 0.2,
     }

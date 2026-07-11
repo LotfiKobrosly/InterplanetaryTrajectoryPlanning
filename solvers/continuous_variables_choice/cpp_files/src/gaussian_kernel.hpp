@@ -4,6 +4,7 @@
 #include <stdexcept>
 
 // ---------------------------------------------------------------------------
+// By Claude
 // GaussianKernel
 // Mirrors the Python GaussianKernel class exactly:
 //

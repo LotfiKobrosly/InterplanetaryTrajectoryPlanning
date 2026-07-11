@@ -1,3 +1,4 @@
+// By Claude
 #pragma once
 
 #include <vector>

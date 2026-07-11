@@ -52,7 +52,13 @@ PYGMO_SOLVERS = {
     },
     "gaco": {
         "function": pg.gaco,
-        "solver_parameters": {"gen": 100, "ker": 20, "q": 0.05, "oracle": 1e9, "memory": True},
+        "solver_parameters": {
+            "gen": 100,
+            "ker": 20,
+            "q": 0.05,
+            "oracle": 1e9,
+            "memory": True,
+        },
     },
 }
 
