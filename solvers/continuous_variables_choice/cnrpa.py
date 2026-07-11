@@ -23,6 +23,7 @@ import time
 from copy import deepcopy
 import numpy as np
 import pykep as pk
+from multiprocessing import Pool
 from utils.constants import (
     GAUSSIAN_KERNEL_THRESHOLD,
     RANDOM_GENERATOR,
@@ -39,14 +40,14 @@ from utils.gaussian_kernel import (
 def policy_playout(
     policy: dict,
     bounds: list,
-    planets_sequence: list = None,
     std_factor: float = 1,
+    *args,
+    **kwargs,
 ):
     values_sequence, states_sequence = list(), list()
-    epoch_list, planets_radii_list = list(), list()
-    for advancement, planet in enumerate(planets_sequence):
+    for advancement, bound in enumerate(bounds):
         # Get bounds
-        low_bound, high_bound = bounds[advancement]
+        low_bound, high_bound = bound
 
         # Choose departure epoch
         if advancement == 0:
@@ -61,9 +62,6 @@ def policy_playout(
             else:
                 chosen_value = RANDOM_GENERATOR.uniform(low_bound, high_bound)
 
-            epoch_list.append(chosen_value)
-            radius, _ = planets_sequence[0].eph(chosen_value)
-            planets_radii_list.append(radius)
             states_sequence.append(normalize(chosen_value, low_bound, high_bound))
 
         else:
@@ -99,18 +97,6 @@ def policy_playout(
             else:
                 chosen_value = RANDOM_GENERATOR.uniform(low_bound, high_bound)
 
-            # Computing Lambert leg
-            epoch_list.append(epoch_list[-1] + chosen_value)
-            planet_radius, planet_velocity = planet.eph(epoch_list[-1])
-            lambert_leg = pk.lambert_problem(
-                tof=chosen_value * pk.DAY2SEC,
-                r0=planets_radii_list[-1],
-                r1=planet_radius,
-                mu=pk.MU_SUN,
-                cw=False,
-                multi_revs=0,
-            )
-            arrival_velocity = np.array(lambert_leg.v1[0])
             states_sequence.append(
                 normalize(
                     chosen_value,
@@ -194,7 +180,6 @@ def run_cnrpa(
     level: int = 0,
     n_policies: int = 10,
     bounds: list = None,
-    planets_sequence: list = None,
     current_iteration: int = 0,
     learning_rate: float = 0.01,
     timeout: float = 10,
@@ -204,19 +189,17 @@ def run_cnrpa(
     best_value: float = UNFEASIBILITY_VALUE,
     best_values_list: list = None,
     time_list: list = None,
+    n_processes: int = 1,
     *args,
     **kwargs,
 ):
-    assert not (planets_sequence is None), "planets_sequence is None"
     assert not (bounds is None), "bounds is None"
     current_time = time.time() - start_time
     if level == 0:
-
         values_sequence, states_sequence = policy_playout(
             policy=policy,
             bounds=bounds,
-            planets_sequence=planets_sequence,
-            std_factor=0.01 + 1 / np.sqrt(current_iteration + 1),
+            std_factor=0.01 + 1 / np.sqrt(current_iteration + 2),
         )
 
         return (
@@ -233,7 +216,6 @@ def run_cnrpa(
                 policy=current_policy,
                 level=level - 1,
                 n_policies=n_policies,
-                planets_sequence=planets_sequence,
                 bounds=bounds,
                 current_iteration=current_iteration,
                 timeout=timeout,
@@ -273,7 +255,6 @@ def cnrpa(
     level: int = 0,
     n_policies: int = 10,
     bounds: list = None,
-    planets_sequence: list = None,
     learning_rate: float = 0.01,
     timeout: float = 10,
     *args,
@@ -287,7 +268,6 @@ def cnrpa(
         level=level,
         n_policies=n_policies,
         bounds=bounds,
-        planets_sequence=planets_sequence,
         current_iteration=0,
         learning_rate=learning_rate,
         timeout=timeout,
@@ -300,17 +280,10 @@ def cnrpa(
     )
     return best_values_sequence, best_value, best_values_list, time_list
 
+
 if __name__ == "__main__":
     # Cassini problem
     udp = pk.trajopt.gym.cassini1
-    planets_sequence = [
-        pk.planet(pk.udpla.jpl_lp("Earth")),
-        pk.planet(pk.udpla.jpl_lp("Venus")),
-        pk.planet(pk.udpla.jpl_lp("Venus")),
-        pk.planet(pk.udpla.jpl_lp("Earth")),
-        pk.planet(pk.udpla.jpl_lp("Jupiter")),
-        pk.planet(pk.udpla.jpl_lp("Saturn")),
-    ]
 
     # Variables bounds
     bounds = [
@@ -321,12 +294,12 @@ if __name__ == "__main__":
     # General input values
     inputs_values = {
         "evaluator": udp,
-        "planets_sequence": planets_sequence,
         "bounds": bounds,
-        "timeout": 60,
+        "timeout": 30,
         "level": 1,
-        "learning_rate": 0.5,
-        "n_policies": 20000,
+        "learning_rate": 0.1,
+        "n_policies": 10000,
     }
     values__sequence, best_value, values_list, time_list = cnrpa(**inputs_values)
     print(f"Best Delta V: {best_value / 1000:.3f} km/s")
+    print(f"Total time: {time_list[-1]:.2f} s")

@@ -1,6 +1,7 @@
 """
 Implements a modified version of a GcABGNRPA, aided with GACO (see pygmo documentation)
 """
+
 import time
 from copy import deepcopy
 import numpy as np
@@ -25,17 +26,14 @@ def gaco_cabgnrpa_playout(
     bias_value: np.ndarray = None,
     bias_std: float = 1.0,
     bounds: list = None,
-    planets_sequence: list = None,
     states_sequence: list = list(),
     std_factor: float = 1,
     tau: float = 10,
 ):
     values_sequence, states_sequence = list(), list()
-    epoch_list, planets_radii_list, planets_velocities_list = list(), list(), list()
-    last_arrival_velocity = None
-    for advancement, planet in enumerate(planets_sequence):
+    for advancement, bound in enumerate(bounds):
         # Get bounds
-        low_bound, high_bound = bounds[advancement]
+        low_bound, high_bound = bound
 
         # Choose departure epoch
         if advancement == 0:
@@ -59,13 +57,7 @@ def gaco_cabgnrpa_playout(
                 )
             else:
                 chosen_value = RANDOM_GENERATOR.uniform(low_bound, high_bound)
-
-            epoch_list.append(chosen_value)
-            radius, velocity = planets_sequence[0].eph(chosen_value)
-            planets_radii_list.append(radius)
-            planets_velocities_list.append(velocity)
             states_sequence.append(normalize(chosen_value, low_bound, high_bound))
-            last_arrival_velocity = velocity
 
         else:
             # Policy candidate
@@ -93,16 +85,20 @@ def gaco_cabgnrpa_playout(
                         high_bound,
                     )
                 else:
-                    policy_weights_candidate = RANDOM_GENERATOR.uniform(low_bound, high_bound)
+                    policy_weights_candidate = RANDOM_GENERATOR.uniform(
+                        low_bound, high_bound
+                    )
             else:
-                policy_weights_candidate = RANDOM_GENERATOR.uniform(low_bound, high_bound)
+                policy_weights_candidate = RANDOM_GENERATOR.uniform(
+                    low_bound, high_bound
+                )
 
             # Choose value
             chosen_value = truncate(
                 sample_mixture_1d(
                     n_samples=1,
                     mu1=policy_weights_candidate,
-                    sigma1=denormalize(std_factor, low_bound, high_bound),
+                    sigma1=std_factor * (high_bound - low_bound) / 2,
                     mu2=bias_value[advancement],
                     sigma2=bias_std[advancement],
                     weight1=1 / tau,
@@ -110,24 +106,6 @@ def gaco_cabgnrpa_playout(
                 low_bound,
                 high_bound,
             )
-            epoch_list.append(epoch_list[-1] + chosen_value)
-            planet_radius, planet_velocity = planet.eph(epoch_list[-1])
-            planets_velocities_list.append(planet_velocity)
-
-            # Computing next state
-            lambert_leg = pk.lambert_problem(
-                tof=chosen_value * pk.DAY2SEC,
-                r0=planets_radii_list[-1],
-                r1=planet_radius,
-                mu=pk.MU_SUN,
-                cw=False,
-                multi_revs=0,
-            )
-
-            arrival_velocity = np.array(lambert_leg.v1[0])
-            planets_radii_list.append(planet_radius)
-
-            last_arrival_velocity = arrival_velocity
             states_sequence.append(
                 normalize(
                     chosen_value,
@@ -139,6 +117,7 @@ def gaco_cabgnrpa_playout(
         values_sequence.append(chosen_value)
     return values_sequence, states_sequence
 
+
 def run_gaco_cabgnrpa(
     evaluator: pk.trajopt.mga,
     policy: dict = dict(),
@@ -148,7 +127,6 @@ def run_gaco_cabgnrpa(
     n_policies: int = 10,
     zeta: float = 0.2,
     bounds: list = None,
-    planets_sequence: list = None,
     current_iteration: int = 0,
     learning_rate: float = 0.01,
     timeout: float = 10,
@@ -162,7 +140,6 @@ def run_gaco_cabgnrpa(
     *args,
     **kwargs,
 ):
-    assert not (planets_sequence is None), "planets_sequence is None"
     assert not (bounds is None), "bounds is None"
     assert not (bias_handler is None), "No algorithm specified or given as argument"
     current_time = time.time() - start_time
@@ -177,20 +154,23 @@ def run_gaco_cabgnrpa(
         density_values /= density_values.sum()
         bias = list()
         bias_std = list()
-        for dimension in range(len(planets_sequence)):
+        for dimension in range(len(bounds)):
 
             bias_center, bias_sigma = fit_gaussian_from_density(
-                bias_values[:,dimension], density_values, zeta,
+                bias_values[:, dimension],
+                density_values,
+                zeta,
             )
             bias.append(bias_center)
             bias_std.append(bias_sigma)
+            if bias_sigma < 0:
+                print("Here: ", bias_sigma)
         values_sequence, states_sequence = gaco_cabgnrpa_playout(
             policy=policy,
             bias_value=bias,
             bias_std=bias_std,
             bounds=bounds,
-            planets_sequence=planets_sequence,
-            std_factor=0.01 + 1 / np.log(current_iteration + 1),
+            std_factor=0.01 + 1 / np.sqrt(current_iteration + 1),
             tau=tau,
         )
         return (
@@ -214,7 +194,6 @@ def run_gaco_cabgnrpa(
                 level=level - 1,
                 n_policies=n_policies,
                 zeta=zeta,
-                planets_sequence=planets_sequence,
                 bounds=bounds,
                 current_iteration=current_iteration,
                 timeout=timeout,
@@ -248,7 +227,6 @@ def run_gaco_cabgnrpa(
             best_states_sequence,
             evaluator.fitness(best_values_sequence)[0],
         )
-            
 
 
 def gaco_cabgnrpa(
@@ -256,7 +234,6 @@ def gaco_cabgnrpa(
     level: int = 0,
     n_policies: int = 10,
     bounds: list = None,
-    planets_sequence: list = None,
     learning_rate: float = 0.01,
     timeout: float = 10,
     zeta: float = 0.2,
@@ -275,7 +252,7 @@ def gaco_cabgnrpa(
             ker=kernel_size,
             q=elitism_factor,
             seed=RANDOM_SEED,
-            memory=True
+            memory=True,
         )
     )
     biases_values = pg.population(problem, size=kernel_size, seed=RANDOM_SEED)
@@ -294,7 +271,6 @@ def gaco_cabgnrpa(
         zeta=zeta,
         n_policies=n_policies,
         bounds=bounds,
-        planets_sequence=planets_sequence,
         current_iteration=0,
         learning_rate=learning_rate,
         timeout=timeout,
@@ -308,17 +284,10 @@ def gaco_cabgnrpa(
     )
     return best_values_sequence, best_value, best_values_list, time_list
 
+
 if __name__ == "__main__":
     # Cassini problem
     udp = pk.trajopt.gym.cassini1
-    planets_sequence = [
-        pk.planet(pk.udpla.jpl_lp("Earth")),
-        pk.planet(pk.udpla.jpl_lp("Venus")),
-        pk.planet(pk.udpla.jpl_lp("Venus")),
-        pk.planet(pk.udpla.jpl_lp("Earth")),
-        pk.planet(pk.udpla.jpl_lp("Jupiter")),
-        pk.planet(pk.udpla.jpl_lp("Saturn")),
-    ]
 
     # Variables bounds
     bounds = [
@@ -329,17 +298,19 @@ if __name__ == "__main__":
     # General input values
     inputs_values = {
         "evaluator": udp,
-        "planets_sequence": planets_sequence,
         "bounds": bounds,
-        "timeout": 300,
+        "timeout": 60,
         "level": 1,
-        "learning_rate": 0.1,
-        "n_policies": 20000,
+        "learning_rate": 0.25,
+        "n_policies": 10000,
         "tau": 1,
         "zeta": 0.2,
         "kernel_size": 50,
         "n_generations": 10,
         "elitism_factor": 0.2,
     }
-    values__sequence, best_value, values_list, time_list = gaco_cabgnrpa(**inputs_values)
+    values__sequence, best_value, values_list, time_list = gaco_cabgnrpa(
+        **inputs_values
+    )
     print(f"Best Delta V: {best_value / 1000:.3f} km/s")
+    print(f"Total time: {time_list[-1]:.2f} s")

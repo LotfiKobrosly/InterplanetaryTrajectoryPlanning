@@ -14,7 +14,6 @@ def run_cnmcts(
     evaluator: pk.trajopt.mga,
     values_sequence: list = list(),
     bounds: list = None,
-    planets_sequence: list = None,
     level: int = 0,
     bandwidth: int = 10,
     timeout: float = 10.0,
@@ -24,18 +23,18 @@ def run_cnmcts(
     best_values_list: list = None,
     time_list: list = None,
     *args,
-    **kwargs
+    **kwargs,
 ):
     current_time = time.time() - start_time
     if level == 0:
-        while len(values_sequence) < len(planets_sequence):
+        while len(values_sequence) < len(bounds):
             values_sequence.append(
                 RANDOM_GENERATOR.uniform(*bounds[len(values_sequence)])
             )
         return values_sequence, evaluator.fitness(values_sequence)[0]
 
     else:
-        while len(values_sequence) < len(planets_sequence) and (current_time < timeout):
+        while len(values_sequence) < len(bounds) and (current_time < timeout):
             temporary_values_sequences = [values_sequence[:] for _ in range(bandwidth)]
             for new_values_sequence in temporary_values_sequences:
 
@@ -46,7 +45,6 @@ def run_cnmcts(
                     evaluator=evaluator,
                     values_sequence=new_values_sequence,
                     bounds=bounds,
-                    planets_sequence=planets_sequence,
                     level=level - 1,
                     bandwidth=bandwidth,
                     timeout=timeout,
@@ -72,12 +70,11 @@ def run_cnmcts(
 def cnmcts(
     evaluator: pk.trajopt.mga,
     bounds: list = None,
-    planets_sequence: list = None,
     level: int = 0,
     bandwidth: int = 10,
     timeout: float = 10.0,
     *args,
-    **kwargs
+    **kwargs,
 ):
     start_time = time.time()
     best_values_list, time_list = list(), list()
@@ -85,7 +82,6 @@ def cnmcts(
         evaluator=evaluator,
         bounds=bounds,
         values_sequence=list(),
-        planets_sequence=planets_sequence,
         level=level,
         bandwidth=bandwidth,
         timeout=timeout,
@@ -98,17 +94,10 @@ def cnmcts(
 
     return best_sequence, best_value, best_values_list, time_list
 
+
 if __name__ == "__main__":
     # Cassini problem
-    udp = pk.trajopt.gym.cassini1
-    planets_sequence = [
-        pk.planet(pk.udpla.jpl_lp("Earth")),
-        pk.planet(pk.udpla.jpl_lp("Venus")),
-        pk.planet(pk.udpla.jpl_lp("Venus")),
-        pk.planet(pk.udpla.jpl_lp("Earth")),
-        pk.planet(pk.udpla.jpl_lp("Jupiter")),
-        pk.planet(pk.udpla.jpl_lp("Saturn")),
-    ]
+    udp = pk.trajopt.gym.cassini2
 
     # Variables bounds
     bounds = [
@@ -119,12 +108,12 @@ if __name__ == "__main__":
     # General input values
     inputs_values = {
         "evaluator": udp,
-        "planets_sequence": planets_sequence,
         "bounds": bounds,
-        "timeout": 300,
-        "level": 2,
+        "timeout": 10,
+        "level": 3,
         "learning_rate": 0.1,
-        "bandwidth": 300,
+        "bandwidth": 50,
     }
     values__sequence, best_value, values_list, time_list = cnmcts(**inputs_values)
     print(f"Best Delta V: {best_value / 1000:.3f} km/s")
+    print(f"Total time: {time_list[-1]:.2f} s")

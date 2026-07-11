@@ -22,7 +22,7 @@ warnings.filterwarnings("ignore")
 PYGMO_SOLVERS = {
     "bee_colony": {
         "function": pg.bee_colony,
-        "solver_parameters": {"gen": 1500, "limit": 20},
+        "solver_parameters": {"gen": 1500, "limit": 20, "memory": True},
     },
     "cmaes": {
         "function": pg.cmaes,
@@ -31,15 +31,16 @@ PYGMO_SOLVERS = {
             "force_bounds": True,
             "sigma0": 0.5,
             "ftol": 1e-4,
+            "memory": True,
         },
     },
     "sade": {
         "function": pg.sade,
-        "solver_parameters": {"gen": 1500, "ftol": 1e-4, "xtol": 1e-4},
+        "solver_parameters": {"gen": 1500, "ftol": 1e-4, "xtol": 1e-4, "memory": True},
     },
     "sga": {
         "function": pg.sga,
-        "solver_parameters": {"gen": 2500, "cr": 0.95, "m": 0.15},
+        "solver_parameters": {"gen": 200, "cr": 0.95, "m": 0.15},
     },
     "simulated_annealing": {
         "function": pg.simulated_annealing,
@@ -47,11 +48,11 @@ PYGMO_SOLVERS = {
     },
     "pso": {
         "function": pg.pso_gen,
-        "solver_parameters": {"gen": 5000},
+        "solver_parameters": {"gen": 50, "memory": True},
     },
     "gaco": {
         "function": pg.gaco,
-        "solver_parameters": {"gen": 1500, "ker": 10, "q": 0.01, "oracle": 1e9},
+        "solver_parameters": {"gen": 100, "ker": 20, "q": 0.05, "oracle": 1e9, "memory": True},
     },
 }
 
@@ -163,6 +164,7 @@ def pygmo_baseline(
     evaluator: pk.trajopt.mga,
     timeout: float = 10,
     solver: str = "sga",
+    population_size: int = 100,
     *args,
     **kwargs,
 ):
@@ -170,21 +172,18 @@ def pygmo_baseline(
     # Setting up
     problem = pg.problem(evaluator)
     solver = PYGMO_SOLVERS[solver]["function"](
-        **PYGMO_SOLVERS[solver]["solver_parameters"]
+        **PYGMO_SOLVERS[solver]["solver_parameters"],
     )
     algorithm = pg.algorithm(solver)
     time_list, best_values_list = list(), list()
     best_x = None
     best_value = UNFEASIBILITY_VALUE
-    pop = pg.population(problem, 20)
+    pop = pg.population(problem, population_size)
     start_time = time.time()
     current_time = time.time() - start_time
 
     # Running algorithm
     while current_time < timeout:
-        pop = pg.population(problem, 20)
-        if best_x is not None:
-            pop.push_back(best_x)
         pop = algorithm.evolve(pop)
         if np.linalg.norm(pop.champion_f) < best_value:
             best_x = deepcopy(pop.champion_x)
@@ -199,7 +198,6 @@ def pygmo_baseline(
 
 def genetic_algorithm(
     evaluator: pk.trajopt.mga,
-    planets_sequence: list = None,
     population: list = None,
     bounds: list = None,
     timeout: float = 10,
@@ -228,7 +226,7 @@ def genetic_algorithm(
                 )
         return chromosome
 
-    chromosome_length = len(planets_sequence)
+    chromosome_length = len(bounds)
     low_bound = [bound[0] for bound in bounds]
     high_bound = [bound[1] for bound in bounds]
 
@@ -282,3 +280,28 @@ def genetic_algorithm(
         time_list.append(current_time)
 
     return best_x, best_value, best_values_list, time_list
+
+
+if __name__ == "__main__":
+    # Cassini problem
+    udp = pk.trajopt.gym.cassini1
+
+    # Variables bounds
+    bounds = [
+        (low_bound, high_bound)
+        for (low_bound, high_bound) in zip(udp.get_bounds()[0], udp.get_bounds()[1])
+    ]
+
+    # General input values
+    inputs_values = {
+        "evaluator": udp,
+        "bounds": bounds,
+        "solver": "sade",
+        "timeout": 10,
+        "population_size": 50,
+    }
+    values__sequence, best_value, values_list, time_list = pygmo_baseline(
+        **inputs_values
+    )
+    print(f"Best Delta V for {inputs_values["solver"]}: {best_value / 1000:.3f} km/s")
+    print(f"Total time: {time_list[-1]:.2f} s")

@@ -306,6 +306,7 @@ def cgnrpa(
     )
     return best_values_sequence, best_value, best_values_list, time_list
 
+
 if __name__ == "__main__":
     # Cassini problem
     udp = pk.trajopt.gym.cassini1
@@ -337,3 +338,4 @@ if __name__ == "__main__":
     }
     values__sequence, best_value, values_list, time_list = cgnrpa(**inputs_values)
     print(f"Delta V: {best_value / 1000:.3f} km/s")
+    print(f"Total time: {time_list[-1]:.2f} s")
