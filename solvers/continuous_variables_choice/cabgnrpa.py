@@ -312,6 +312,7 @@ def run_cabgnrpa(
                 evaluator=evaluator,
                 policy=current_policy,
                 biases_values=current_biases_values,
+                learning_rate=learning_rate,
                 level=level - 1,
                 n_policies=n_policies,
                 planets_sequence=planets_sequence,

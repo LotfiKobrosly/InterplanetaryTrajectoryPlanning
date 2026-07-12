@@ -7,21 +7,12 @@
 #include <vector>
 #include <utility>
 #include <memory>
+#include <cstdio>
 
 namespace py = pybind11;
 
-// ---------------------------------------------------------------------------
-// PythonEvaluatorUDP
-//
-// pagmo User Defined Problem wrapping a Python pykep evaluator.
-// pagmo requires UDP to be CopyConstructible — we satisfy this by storing
-// the Python object via shared_ptr (shallow copy, both share the same object).
-// This is safe since the Python object is read-only from GACO's perspective
-// (GACO only calls fitness(), never modifies the evaluator).
-// ---------------------------------------------------------------------------
 class PythonEvaluatorUDP {
 public:
-    // Default constructor required by pagmo's is_udp type trait
     PythonEvaluatorUDP() = default;
 
     PythonEvaluatorUDP(
@@ -33,23 +24,38 @@ public:
         , ub_(ub)
     {}
 
-    // Copy constructor: shared_ptr copy — both instances share py_udp_
     PythonEvaluatorUDP(const PythonEvaluatorUDP&)            = default;
     PythonEvaluatorUDP(PythonEvaluatorUDP&&)                 = default;
     PythonEvaluatorUDP& operator=(const PythonEvaluatorUDP&) = default;
     PythonEvaluatorUDP& operator=(PythonEvaluatorUDP&&)      = default;
 
-    // pagmo UDP interface: fitness
     pagmo::vector_double fitness(const pagmo::vector_double& x) const {
-        if (!py_udp_)
-            throw std::runtime_error(
-                "PythonEvaluatorUDP: fitness() called on default-constructed instance");
+        if (!py_udp_) {
+            fprintf(stderr, "[UDP] WARNING: default-constructed fitness called\n");
+            fflush(stderr);
+            return {1e10};
+        }
         py::gil_scoped_acquire acquire;
+
+        static int call_count = 0;
+        ++call_count;
+        if (call_count <= 3) {
+            fprintf(stderr, "[UDP] gaco fitness call #%d x[0]=%.4f\n",
+                    call_count, x.empty() ? 0.0 : x[0]);
+            fflush(stderr);
+        }
+
         py::object result = py_udp_->attr("fitness")(x);
-        return result.cast<pagmo::vector_double>();
+        auto r = result.cast<pagmo::vector_double>();
+
+        if (call_count <= 3) {
+            fprintf(stderr, "[UDP] gaco fitness result=%.4f\n",
+                    r.empty() ? 0.0 : r[0]);
+            fflush(stderr);
+        }
+        return r;
     }
 
-    // pagmo UDP interface: bounds
     std::pair<pagmo::vector_double, pagmo::vector_double> get_bounds() const {
         return {lb_, ub_};
     }

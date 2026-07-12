@@ -34,6 +34,7 @@ from utils.basic_functions import normalize, denormalize, code, truncate
 from utils.gaussian_kernel import (
     GaussianKernel,
 )
+from utils.udp_wrapper import CountingEvaluator
 
 
 def policy_playout(
@@ -215,6 +216,7 @@ def run_cnrpa(
                 policy=current_policy,
                 level=level - 1,
                 n_policies=n_policies,
+                learning_rate=learning_rate,
                 bounds=bounds,
                 current_iteration=current_iteration,
                 timeout=timeout,
@@ -282,7 +284,7 @@ def cnrpa(
 
 if __name__ == "__main__":
     # Cassini problem
-    udp = pk.trajopt.gym.cassini2
+    udp = CountingEvaluator(pk.trajopt.gym.cassini1)
 
     # Variables bounds
     bounds = [
@@ -294,11 +296,12 @@ if __name__ == "__main__":
     inputs_values = {
         "evaluator": udp,
         "bounds": bounds,
-        "timeout": 30,
+        "timeout": 60,
         "level": 2,
-        "learning_rate": 0.1,
-        "n_policies": 200,
+        "learning_rate": 0.01,
+        "n_policies": 500,
     }
     values__sequence, best_value, values_list, time_list = cnrpa(**inputs_values)
     print(f"Best Delta V: {best_value / 1000:.3f} km/s")
     print(f"Total time: {time_list[-1]:.2f} s")
+    print(f"Total number of evaluations: {udp.count}")

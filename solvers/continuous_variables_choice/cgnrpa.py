@@ -236,6 +236,7 @@ def run_cgnrpa(
                 policy=current_policy,
                 level=level - 1,
                 n_policies=n_policies,
+                learning_rate=learning_rate,
                 planets_sequence=planets_sequence,
                 bounds=bounds,
                 current_iteration=current_iteration,

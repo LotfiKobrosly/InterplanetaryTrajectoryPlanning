@@ -18,7 +18,7 @@
 
 #include "cnrpa.hpp"          // Policy, RNG, adapt_policy, helpers
 #include "gaussian_kernel.hpp"
-#include "pagmo_udp.hpp"      // PythonEvaluatorUDP
+// pagmo_udp.hpp included via bindings.cpp — not needed here
 
 // ---------------------------------------------------------------------------
 // sample_mixture_1d
@@ -316,8 +316,10 @@ inline GACOCNRPAResult run_gaco_cabgnrpa(
 
     } else {
         // --- Recursive case ---
-        // Save GACO checkpoint: pure C++ copy of pagmo::population
-        gaco.save();
+        // GACO population is NOT reset between iterations — it accumulates
+        // across all n_policies iterations, matching Python's behavior where
+        // deepcopy(biases_values) copies once before the loop and is never
+        // reset during it.
         Policy current_policy = policy;
 
         for (int iter = 0; iter < n_policies; ++iter) {
@@ -353,18 +355,18 @@ inline GACOCNRPAResult run_gaco_cabgnrpa(
 
             if (t > timeout) break;
 
-            // Restore GACO to checkpoint for next iteration
-            // (mirrors deepcopy(current_biases_values) — pure C++ copy)
-            if (iter + 1 < n_policies)
-                gaco.restore();
+            // NOTE: do NOT restore GACO population here.
+            // Python's deepcopy(biases_values) copies the population ONCE
+            // before the loop but never resets it during the loop —
+            // GACO accumulates improvements across all n_policies iterations
+            // at this level. We match that by never calling gaco.restore()
+            // inside the loop.
         }
 
-        double final_fitness = best_values_sequence.empty()
-            ? unfeasibility_value
-            : evaluator(best_values_sequence);
-
+        // Use best_value directly — already the best fitness found,
+        // no need to re-evaluate (mirrors corrected Python behavior).
         return GACOCNRPAResult{
-            best_values_sequence, best_states_sequence, final_fitness,
+            best_values_sequence, best_states_sequence, best_value,
             best_values_list, time_list};
     }
 }
@@ -377,7 +379,7 @@ inline GACOCNRPAResult run_gaco_cabgnrpa(
 // ---------------------------------------------------------------------------
 inline GACOCNRPAResult gaco_cabgnrpa(
     const Evaluator&            evaluator,
-    py::object                  py_udp,         // for pagmo::problem construction
+    pagmo::problem&             prob,           // pre-built with GIL held in bindings.cpp
     const pagmo::vector_double& lb,
     const pagmo::vector_double& ub,
     int                         level,
@@ -394,8 +396,7 @@ inline GACOCNRPAResult gaco_cabgnrpa(
     double                      elitism_factor,
     unsigned                    random_seed)
 {
-    // Build pagmo problem from the Python UDP
-    pagmo::problem prob{PythonEvaluatorUDP(py_udp, lb, ub)};
+    // prob is pre-built in bindings.cpp with GIL held — do not reconstruct here.
 
     // Build pagmo GACO algorithm
     pagmo::algorithm algo{pagmo::gaco(

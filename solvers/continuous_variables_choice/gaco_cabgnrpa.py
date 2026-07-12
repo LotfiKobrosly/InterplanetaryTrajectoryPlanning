@@ -19,6 +19,7 @@ from utils.constants import (
 from utils.basic_functions import *
 from utils.gaussian_kernel import GaussianKernel
 from solvers.continuous_variables_choice.cnrpa import adapt_policy
+from utils.udp_wrapper import CountingEvaluator
 
 
 def gaco_cabgnrpa_playout(
@@ -180,13 +181,15 @@ def run_gaco_cabgnrpa(
         # Save current policy
         current_policy = deepcopy(policy)
         current_biases_values = deepcopy(biases_values)
+        current_bias_handler = deepcopy(bias_handler)
 
         for current_iteration in range(n_policies):
             values_sequence, states_sequence, total_delta_v = run_gaco_cabgnrpa(
                 evaluator=evaluator,
                 policy=current_policy,
                 biases_values=current_biases_values,
-                bias_handler=bias_handler,
+                bias_handler=current_bias_handler,
+                learning_rate=learning_rate,
                 level=level - 1,
                 n_policies=n_policies,
                 zeta=zeta,
@@ -221,7 +224,7 @@ def run_gaco_cabgnrpa(
         return (
             best_values_sequence,
             best_states_sequence,
-            evaluator.fitness(best_values_sequence)[0],
+            best_value,
         )
 
 
@@ -283,7 +286,7 @@ def gaco_cabgnrpa(
 
 if __name__ == "__main__":
     # Cassini problem
-    udp = pk.trajopt.gym.cassini1
+    udp = CountingEvaluator(pk.trajopt.gym.cassini1)
 
     # Variables bounds
     bounds = [
@@ -297,9 +300,9 @@ if __name__ == "__main__":
         "bounds": bounds,
         "timeout": 60,
         "level": 2,
-        "learning_rate": 0.25,
+        "learning_rate": 0.1,
         "n_policies": 100,
-        "tau": 1.3,
+        "tau": 10,
         "zeta": 0.2,
         "kernel_size": 63,
         "n_generations": 10,
@@ -310,3 +313,4 @@ if __name__ == "__main__":
     )
     print(f"Best Delta V: {best_value / 1000:.3f} km/s")
     print(f"Total time: {time_list[-1]:.2f} s")
+    print(f"Total number of evaluations: {udp.count}")
