@@ -27,7 +27,6 @@ def gaco_cabgnrpa_playout(
     bias_value: np.ndarray = None,
     bias_std: float = 1.0,
     bounds: list = None,
-    states_sequence: list = list(),
     std_factor: float = 1,
     tau: float = 10,
 ):
@@ -116,7 +115,7 @@ def gaco_cabgnrpa_playout(
             )
 
         values_sequence.append(chosen_value)
-    return values_sequence, states_sequence
+    return values_sequence
 
 
 def run_gaco_cabgnrpa(
@@ -133,7 +132,6 @@ def run_gaco_cabgnrpa(
     timeout: float = 10,
     start_time: float = 0,
     best_values_sequence: list = None,
-    best_states_sequence: list = None,
     best_value: float = UNFEASIBILITY_VALUE,
     best_values_list: list = None,
     time_list: list = None,
@@ -164,7 +162,7 @@ def run_gaco_cabgnrpa(
             )
             bias.append(bias_center)
             bias_std.append(bias_sigma)
-        values_sequence, states_sequence = gaco_cabgnrpa_playout(
+        values_sequence = gaco_cabgnrpa_playout(
             policy=policy,
             bias_value=bias,
             bias_std=bias_std,
@@ -174,7 +172,6 @@ def run_gaco_cabgnrpa(
         )
         return (
             values_sequence,
-            states_sequence,
             evaluator.fitness(values_sequence)[0],
         )
     else:
@@ -184,7 +181,7 @@ def run_gaco_cabgnrpa(
         current_bias_handler = deepcopy(bias_handler)
 
         for current_iteration in range(n_policies):
-            values_sequence, states_sequence, total_delta_v = run_gaco_cabgnrpa(
+            values_sequence, total_delta_v = run_gaco_cabgnrpa(
                 evaluator=evaluator,
                 policy=current_policy,
                 biases_values=current_biases_values,
@@ -198,7 +195,6 @@ def run_gaco_cabgnrpa(
                 timeout=timeout,
                 start_time=start_time,
                 best_values_sequence=best_values_sequence,
-                best_states_sequence=best_states_sequence,
                 best_value=best_value,
                 best_values_list=best_values_list,
                 time_list=time_list,
@@ -207,12 +203,10 @@ def run_gaco_cabgnrpa(
             if total_delta_v < best_value:
                 best_value = total_delta_v
                 best_values_sequence = values_sequence[:]
-                best_states_sequence = states_sequence[:]
             current_time = time.time() - start_time
             if best_value < UNFEASIBILITY_VALUE:
                 current_policy = adapt_policy(
                     best_values_sequence=best_values_sequence,
-                    best_states_sequence=best_states_sequence,
                     policy=current_policy,
                     learning_rate=learning_rate,
                     bounds=bounds,
@@ -223,7 +217,6 @@ def run_gaco_cabgnrpa(
                 break
         return (
             best_values_sequence,
-            best_states_sequence,
             best_value,
         )
 
@@ -261,7 +254,7 @@ def gaco_cabgnrpa(
     best_values_list, time_list = list(), list()
 
     # Launch solver
-    best_values_sequence, best_states_sequence, best_value = run_gaco_cabgnrpa(
+    best_values_sequence, best_value = run_gaco_cabgnrpa(
         evaluator=evaluator,
         policy=dict(),
         biases_values=biases_values,
@@ -275,7 +268,6 @@ def gaco_cabgnrpa(
         timeout=timeout,
         start_time=start_time,
         best_values_sequence=None,
-        best_states_sequence=None,
         best_value=UNFEASIBILITY_VALUE,
         best_values_list=best_values_list,
         time_list=time_list,
@@ -300,9 +292,9 @@ if __name__ == "__main__":
         "bounds": bounds,
         "timeout": 60,
         "level": 2,
-        "learning_rate": 0.1,
+        "learning_rate": 0.05,
         "n_policies": 100,
-        "tau": 10,
+        "tau": 1,
         "zeta": 0.2,
         "kernel_size": 63,
         "n_generations": 10,

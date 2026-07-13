@@ -97,45 +97,39 @@ def policy_playout(
             else:
                 chosen_value = RANDOM_GENERATOR.uniform(low_bound, high_bound)
 
-            states_sequence.append(
-                normalize(
-                    chosen_value,
-                    low_bound,
-                    high_bound,
-                )
-            )
+            states_sequence.append(normalize(chosen_value, low_bound, high_bound))
 
         values_sequence.append(chosen_value)
-    return values_sequence, states_sequence
-
+    return values_sequence
 
 def adapt_policy(
     best_values_sequence: list,
-    best_states_sequence: list,
     policy: dict,
     learning_rate: float = 0.01,
     bounds: list = None,
 ):
+    best_values_sequence = [
+        normalize(value, *bound)
+        for (value, bound) in zip(best_values_sequence, bounds)
+    ]
     if policy:
         for advancement, element in enumerate(best_values_sequence):
             low_bound, high_bound = bounds[advancement]
             if advancement == 0:
                 policy[advancement] += learning_rate * (
-                    normalize(element, low_bound, high_bound) - policy[advancement]
+                    element - policy[advancement]
                 )
             else:
-                current_key = code(best_states_sequence[:advancement])
+                current_key = code(best_values_sequence[:advancement])
                 if current_key in policy[advancement].keys():
                     previous_value = policy[advancement][current_key]
                     policy[advancement][current_key] = (
                         previous_value
                         + learning_rate
-                        * (normalize(element, low_bound, high_bound) - previous_value)
+                        * (element - previous_value)
                     )
                 else:
-                    policy[advancement][current_key] = normalize(
-                        element, low_bound, high_bound
-                    )
+                    policy[advancement][current_key] = element
                 gaussian_kernel = GaussianKernel(current_key, 0.2)
                 for key in policy[advancement].keys():
                     weight = gaussian_kernel.pdf(key)
@@ -146,8 +140,7 @@ def adapt_policy(
                             + learning_rate
                             * weight
                             * (
-                                normalize(element, low_bound, high_bound)
-                                - previous_value
+                                element - previous_value
                             )
                         )
 
@@ -155,22 +148,11 @@ def adapt_policy(
         for advancement, element in enumerate(best_values_sequence):
             low_bound, high_bound = bounds[advancement]
             if advancement == 0:
-                policy[advancement] = normalize(element, low_bound, high_bound)
+                policy[advancement] = element
             else:
-                try:
-                    policy[advancement] = {
-                        code(best_states_sequence[:advancement]): normalize(
-                            element, low_bound, high_bound
-                        )
-                    }
-                except IndexError:
-                    print(
-                        "Size values sequence: "
-                        + str(len(best_values_sequence))
-                        + ", vs states sequence: "
-                        + str(len(best_states_sequence))
-                    )
-                    raise IndexError
+                policy[advancement] = {
+                    code(best_values_sequence[:advancement]): element
+                }
     return policy
 
 
@@ -185,7 +167,6 @@ def run_cnrpa(
     timeout: float = 10,
     start_time: float = 0,
     best_values_sequence: list = None,
-    best_states_sequence: list = None,
     best_value: float = UNFEASIBILITY_VALUE,
     best_values_list: list = None,
     time_list: list = None,
@@ -196,7 +177,7 @@ def run_cnrpa(
     assert not (bounds is None), "bounds is None"
     current_time = time.time() - start_time
     if level == 0:
-        values_sequence, states_sequence = policy_playout(
+        values_sequence = policy_playout(
             policy=policy,
             bounds=bounds,
             std_factor=0.01 + 1 / np.sqrt(current_iteration + 2),
@@ -204,14 +185,13 @@ def run_cnrpa(
 
         return (
             values_sequence,
-            states_sequence,
             evaluator.fitness(values_sequence)[0],
         )
 
     else:
         current_policy = deepcopy(policy)
         for current_iteration in range(n_policies):
-            values_sequence, states_sequence, total_delta_v = run_cnrpa(
+            values_sequence, total_delta_v = run_cnrpa(
                 evaluator=evaluator,
                 policy=current_policy,
                 level=level - 1,
@@ -222,7 +202,6 @@ def run_cnrpa(
                 timeout=timeout,
                 start_time=start_time,
                 best_values_sequence=best_values_sequence,
-                best_states_sequence=best_states_sequence,
                 best_value=best_value,
                 best_values_list=best_values_list,
                 time_list=time_list,
@@ -230,12 +209,10 @@ def run_cnrpa(
             if total_delta_v < best_value:
                 best_value = total_delta_v
                 best_values_sequence = values_sequence[:]
-                best_states_sequence = states_sequence[:]
             current_time = time.time() - start_time
             if best_value < UNFEASIBILITY_VALUE:
                 current_policy = adapt_policy(
                     best_values_sequence=best_values_sequence,
-                    best_states_sequence=best_states_sequence,
                     policy=current_policy,
                     learning_rate=learning_rate,
                     bounds=bounds,
@@ -246,7 +223,6 @@ def run_cnrpa(
                 break
         return (
             best_values_sequence,
-            best_states_sequence,
             best_value,
         )
 
@@ -263,7 +239,7 @@ def cnrpa(
 ):
     start_time = time.time()
     best_values_list, time_list = list(), list()
-    best_values_sequence, best_states_sequence, best_value = run_cnrpa(
+    best_values_sequence, best_value = run_cnrpa(
         evaluator=evaluator,
         policy=dict(),
         level=level,
@@ -274,7 +250,6 @@ def cnrpa(
         timeout=timeout,
         start_time=start_time,
         best_values_sequence=None,
-        best_states_sequence=None,
         best_value=UNFEASIBILITY_VALUE,
         best_values_list=best_values_list,
         time_list=time_list,
@@ -298,7 +273,7 @@ if __name__ == "__main__":
         "bounds": bounds,
         "timeout": 60,
         "level": 2,
-        "learning_rate": 0.01,
+        "learning_rate": 0.05,
         "n_policies": 500,
     }
     values__sequence, best_value, values_list, time_list = cnrpa(**inputs_values)

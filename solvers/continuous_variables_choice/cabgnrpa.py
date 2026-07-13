@@ -40,6 +40,7 @@ from utils.gaussian_kernel import (
     GaussianKernel,
 )
 from utils.orbital_elements import orbital_speeds
+from utils.udp_wrapper import CountingEvaluator
 from solvers.continuous_variables_choice.cnrpa import adapt_policy
 
 
@@ -89,7 +90,7 @@ def adaptive_bias_policy_playout(
             # Policy candidate
             if policy:
                 current_policy = policy[advancement]
-                gaussian_kernel = GaussianKernel(states_sequence, sigma=std_factor)
+                gaussian_kernel = GaussianKernel(states_sequence[:advancement], sigma=std_factor)
                 values, weights = list(), list()
                 for key in current_policy.keys():
                     if isinstance(current_policy[key], (float, int)):
@@ -122,7 +123,7 @@ def adaptive_bias_policy_playout(
             epoch_list.append(epoch_list[-1] + chosen_value)
             planet_radius, planet_velocity = planet.eph(epoch_list[-1])
             planets_velocities_list.append(planet_velocity)
-            current_state = states_sequence[:]
+            current_state = states_sequence[:advancement]
             planet_name = planets_sequence[advancement - 1].get_name()[:-8]
 
             if (advancement > 1) and (advancement < (len(planets_sequence) - 1)):
@@ -134,13 +135,14 @@ def adaptive_bias_policy_playout(
 
                     bias_values, bias_candidates = list(), list()
                     for state, candidates in biases_values[planet_name].items():
-                        weight = gaussian_kernel.pdf(state)
-                        if weight > GAUSSIAN_KERNEL_THRESHOLD:
-                            for candidate, candidate_weight in biases_values[
-                                planet_name
-                            ][state].items():
-                                bias_candidates.append(candidate)
-                                bias_values.append(weight * candidate_weight)
+                        if len(state) == len(current_state):
+                            weight = gaussian_kernel.pdf(state)
+                            if weight > GAUSSIAN_KERNEL_THRESHOLD:
+                                for candidate, candidate_weight in biases_values[
+                                    planet_name
+                                ][state].items():
+                                    bias_candidates.append(candidate)
+                                    bias_values.append(weight * candidate_weight)
                     bias_values = np.array(bias_values)
                     relevant_nearby_states = (len(bias_values) > 0) and (
                         np.sum(bias_values) > 10 * GAUSSIAN_KERNEL_THRESHOLD
@@ -203,16 +205,17 @@ def adaptive_bias_policy_playout(
                         }
                     if relevant_nearby_states:
                         for state, candidates in biases_values[planet_name].items():
-                            weight = gaussian_kernel.pdf(state)
-                            for candidate, candidate_weight in candidates.items():
-                                candidates[candidate] = (
-                                    1
-                                    + gamma * weight * adaptation_kernel.pdf(candidate)
-                                ) * candidate_weight
-                            # Normalization
-                            noramlizing_factor = np.sum(list(candidates.values()))
-                            for candidate in candidates.keys():
-                                candidates[candidate] /= noramlizing_factor
+                            if len(state) == len(current_state):
+                                weight = gaussian_kernel.pdf(state)
+                                for candidate, candidate_weight in candidates.items():
+                                    candidates[candidate] = (
+                                        1
+                                        + gamma * weight * adaptation_kernel.pdf(candidate)
+                                    ) * candidate_weight
+                                # Normalization
+                                noramlizing_factor = np.sum(list(candidates.values()))
+                                for candidate in candidates.keys():
+                                    candidates[candidate] /= noramlizing_factor
                 else:
                     chosen_value = truncate(
                         RANDOM_GENERATOR.normal(
@@ -260,8 +263,7 @@ def adaptive_bias_policy_playout(
             planets_velocities_list.append(planet_velocity)
 
         values_sequence.append(chosen_value)
-    return values_sequence, states_sequence
-
+    return values_sequence
 
 def run_cabgnrpa(
     evaluator: pk.trajopt.mga,
@@ -276,7 +278,6 @@ def run_cabgnrpa(
     timeout: float = 10,
     start_time: float = 0,
     best_values_sequence: list = None,
-    best_states_sequence: list = None,
     best_value: float = UNFEASIBILITY_VALUE,
     best_values_list: list = None,
     time_list: list = None,
@@ -290,7 +291,7 @@ def run_cabgnrpa(
     current_time = time.time() - start_time
     if level == 0:
 
-        values_sequence, states_sequence = adaptive_bias_policy_playout(
+        values_sequence = adaptive_bias_policy_playout(
             policy=policy,
             biases_values=biases_values,
             bounds=bounds,
@@ -301,14 +302,13 @@ def run_cabgnrpa(
         )
         return (
             values_sequence,
-            states_sequence,
             evaluator.fitness(values_sequence)[0],
         )
     else:
         current_policy = deepcopy(policy)
         current_biases_values = deepcopy(biases_values)
         for current_iteration in range(n_policies):
-            values_sequence, states_sequence, total_delta_v = run_cabgnrpa(
+            values_sequence, total_delta_v = run_cabgnrpa(
                 evaluator=evaluator,
                 policy=current_policy,
                 biases_values=current_biases_values,
@@ -321,7 +321,6 @@ def run_cabgnrpa(
                 timeout=timeout,
                 start_time=start_time,
                 best_values_sequence=best_values_sequence,
-                best_states_sequence=best_states_sequence,
                 best_value=best_value,
                 best_values_list=best_values_list,
                 time_list=time_list,
@@ -331,12 +330,10 @@ def run_cabgnrpa(
             if total_delta_v < best_value:
                 best_value = total_delta_v
                 best_values_sequence = values_sequence[:]
-                best_states_sequence = states_sequence[:]
             current_time = time.time() - start_time
             if best_value < UNFEASIBILITY_VALUE:
                 current_policy = adapt_policy(
                     best_values_sequence=best_values_sequence,
-                    best_states_sequence=best_states_sequence,
                     policy=current_policy,
                     learning_rate=learning_rate,
                     bounds=bounds,
@@ -347,7 +344,6 @@ def run_cabgnrpa(
                 break
         return (
             best_values_sequence,
-            best_states_sequence,
             evaluator.fitness(best_values_sequence)[0],
         )
 
@@ -367,7 +363,7 @@ def cabgnrpa(
 ):
     start_time = time.time()
     best_values_list, time_list = list(), list()
-    best_values_sequence, best_states_sequence, best_value = run_cabgnrpa(
+    best_values_sequence, best_value = run_cabgnrpa(
         evaluator=evaluator,
         policy=dict(),
         biases_values=dict(),
@@ -380,7 +376,6 @@ def cabgnrpa(
         timeout=timeout,
         start_time=start_time,
         best_values_sequence=None,
-        best_states_sequence=None,
         best_value=UNFEASIBILITY_VALUE,
         best_values_list=best_values_list,
         time_list=time_list,
@@ -392,7 +387,7 @@ def cabgnrpa(
 
 if __name__ == "__main__":
     # Cassini problem
-    udp = pk.trajopt.gym.cassini1
+    udp = CountingEvaluator(pk.trajopt.gym.cassini1)
     planets_sequence = [
         pk.planet(pk.udpla.jpl_lp("Earth")),
         pk.planet(pk.udpla.jpl_lp("Venus")),
@@ -413,13 +408,14 @@ if __name__ == "__main__":
         "evaluator": udp,
         "planets_sequence": planets_sequence,
         "bounds": bounds,
-        "timeout": 300,
+        "timeout": 120,
         "level": 2,
-        "learning_rate": 0.1,
-        "n_policies": 100,
-        "tau": 5,
-        "gamma": 0.5,
+        "learning_rate": 0.05,
+        "n_policies": 200,
+        "tau": 1.25,
+        "gamma": 0.2,
     }
     values__sequence, best_value, values_list, time_list = cabgnrpa(**inputs_values)
     print(f"Best Delta V: {best_value / 1000:.3f} km/s")
     print(f"Total time: {time_list[-1]:.2f} s")
+    print(f"Total number of evaluations: {udp.count}")

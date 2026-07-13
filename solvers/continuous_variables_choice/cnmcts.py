@@ -8,6 +8,7 @@ import time
 import numpy as np
 import pykep as pk
 from utils.constants import RANDOM_GENERATOR, DV_LAUNCHER, UNFEASIBILITY_VALUE
+from utils.udp_wrapper import CountingEvaluator
 
 
 def run_cnmcts(
@@ -97,7 +98,7 @@ def cnmcts(
 
 if __name__ == "__main__":
     # Cassini problem
-    udp = pk.trajopt.gym.cassini2
+    udp = CountingEvaluator(pk.trajopt.gym.cassini1)
 
     # Variables bounds
     bounds = [
@@ -109,10 +110,11 @@ if __name__ == "__main__":
     inputs_values = {
         "evaluator": udp,
         "bounds": bounds,
-        "timeout": 10,
+        "timeout": 60,
         "level": 2,
-        "bandwidth": 200,
+        "bandwidth": 250,
     }
     values__sequence, best_value, values_list, time_list = cnmcts(**inputs_values)
     print(f"Best Delta V: {best_value / 1000:.3f} km/s")
     print(f"Total time: {time_list[-1]:.2f} s")
+    print(f"Total number of evaluations: {udp.count}")

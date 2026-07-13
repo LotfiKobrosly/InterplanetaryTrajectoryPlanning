@@ -29,6 +29,7 @@ from utils.gaussian_kernel import (
     GaussianKernel,
 )
 from utils.heuristic_functions import porkchop_scan
+from utils.udp_wrapper import CountingEvaluator
 from solvers.continuous_variables_choice.cnrpa import adapt_policy
 
 
@@ -188,7 +189,7 @@ def biased_policy_playout(
             )
 
         values_sequence.append(chosen_value)
-    return values_sequence, states_sequence
+    return values_sequence
 
 
 def run_cgnrpa(
@@ -203,7 +204,6 @@ def run_cgnrpa(
     timeout: float = 10,
     start_time: float = 0,
     best_values_sequence: list = None,
-    best_states_sequence: list = None,
     best_value: float = UNFEASIBILITY_VALUE,
     best_values_list: list = None,
     time_list: list = None,
@@ -216,7 +216,7 @@ def run_cgnrpa(
     current_time = time.time() - start_time
     if level == 0:
 
-        values_sequence, states_sequence = biased_policy_playout(
+        values_sequence = biased_policy_playout(
             policy=policy,
             bounds=bounds,
             planets_sequence=planets_sequence,
@@ -225,13 +225,12 @@ def run_cgnrpa(
         )
         return (
             values_sequence,
-            states_sequence,
             evaluator.fitness(values_sequence)[0],
         )
     else:
         current_policy = deepcopy(policy)
         for current_iteration in range(n_policies):
-            values_sequence, states_sequence, total_delta_v = run_cgnrpa(
+            values_sequence, total_delta_v = run_cgnrpa(
                 evaluator=evaluator,
                 policy=current_policy,
                 level=level - 1,
@@ -243,7 +242,6 @@ def run_cgnrpa(
                 timeout=timeout,
                 start_time=start_time,
                 best_values_sequence=best_values_sequence,
-                best_states_sequence=best_states_sequence,
                 best_value=best_value,
                 best_values_list=best_values_list,
                 time_list=time_list,
@@ -252,12 +250,10 @@ def run_cgnrpa(
             if total_delta_v < best_value:
                 best_value = total_delta_v
                 best_values_sequence = values_sequence[:]
-                best_states_sequence = states_sequence[:]
             current_time = time.time() - start_time
             if best_value < UNFEASIBILITY_VALUE:
                 current_policy = adapt_policy(
                     best_values_sequence=best_values_sequence,
-                    best_states_sequence=best_states_sequence,
                     policy=current_policy,
                     learning_rate=learning_rate,
                     bounds=bounds,
@@ -268,7 +264,6 @@ def run_cgnrpa(
                 break
         return (
             best_values_sequence,
-            best_states_sequence,
             best_value,
         )
 
@@ -287,7 +282,7 @@ def cgnrpa(
 ):
     start_time = time.time()
     best_values_list, time_list = list(), list()
-    best_values_sequence, best_states_sequence, best_value = run_cgnrpa(
+    best_values_sequence, best_value = run_cgnrpa(
         evaluator=evaluator,
         policy=dict(),
         level=level,
@@ -299,7 +294,6 @@ def cgnrpa(
         timeout=timeout,
         start_time=start_time,
         best_values_sequence=None,
-        best_states_sequence=None,
         best_value=UNFEASIBILITY_VALUE,
         best_values_list=best_values_list,
         time_list=time_list,
@@ -310,7 +304,7 @@ def cgnrpa(
 
 if __name__ == "__main__":
     # Cassini problem
-    udp = pk.trajopt.gym.cassini1
+    udp = CountingEvaluator(pk.trajopt.gym.cassini1)
     planets_sequence = [
         pk.planet(pk.udpla.jpl_lp("Earth")),
         pk.planet(pk.udpla.jpl_lp("Venus")),
@@ -333,10 +327,11 @@ if __name__ == "__main__":
         "bounds": bounds,
         "timeout": 60,
         "level": 2,
-        "learning_rate": 0.1,
-        "n_policies": 300,
-        "tau": 2,
+        "learning_rate": 0.05,
+        "n_policies": 250,
+        "tau": 1.2,
     }
     values__sequence, best_value, values_list, time_list = cgnrpa(**inputs_values)
     print(f"Delta V: {best_value / 1000:.3f} km/s")
     print(f"Total time: {time_list[-1]:.2f} s")
+    print(f"Total number of evaluations: {udp.count}")
