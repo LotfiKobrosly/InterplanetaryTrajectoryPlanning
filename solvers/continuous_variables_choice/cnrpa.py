@@ -23,6 +23,7 @@ import time
 from copy import deepcopy
 import numpy as np
 import pykep as pk
+import matplotlib.pyplot as plt
 from utils.constants import (
     GAUSSIAN_KERNEL_THRESHOLD,
     RANDOM_GENERATOR,
@@ -74,7 +75,7 @@ def policy_playout(
                         value = current_policy[key]
                     else:
                         value = np.array(current_policy[key])
-                    weight = gaussian_kernel.pdf(value)
+                    weight = gaussian_kernel.pdf(key)
                     if weight >= GAUSSIAN_KERNEL_THRESHOLD:
                         weights.append(weight)
                         values.append(value)
@@ -190,6 +191,8 @@ def run_cnrpa(
 
     else:
         current_policy = deepcopy(policy)
+        current_best_value = UNFEASIBILITY_VALUE
+        current_best_sequence = None
         for current_iteration in range(n_policies):
             values_sequence, total_delta_v = run_cnrpa(
                 evaluator=evaluator,
@@ -206,17 +209,22 @@ def run_cnrpa(
                 best_values_list=best_values_list,
                 time_list=time_list,
             )
-            if total_delta_v < best_value:
-                best_value = total_delta_v
-                best_values_sequence = values_sequence[:]
-            current_time = time.time() - start_time
-            if best_value < UNFEASIBILITY_VALUE:
+            if total_delta_v < current_best_value:
+                current_best_value = total_delta_v
+                current_best_sequence = values_sequence[:]
+            
+            if current_best_value < UNFEASIBILITY_VALUE:
                 current_policy = adapt_policy(
-                    best_values_sequence=best_values_sequence,
+                    best_values_sequence=current_best_sequence,
                     policy=current_policy,
                     learning_rate=learning_rate,
                     bounds=bounds,
                 )
+            if current_best_value < best_value:
+                best_value = current_best_value
+                best_values_sequence = current_best_sequence[:]
+            current_time = time.time() - start_time
+            if best_value < UNFEASIBILITY_VALUE:
                 best_values_list.append(best_value)
                 time_list.append(current_time)
             if current_time > timeout:
@@ -271,12 +279,28 @@ if __name__ == "__main__":
     inputs_values = {
         "evaluator": udp,
         "bounds": bounds,
-        "timeout": 60,
-        "level": 2,
+        "timeout": 180,
+        "level": 3,
         "learning_rate": 0.05,
-        "n_policies": 500,
+        "n_policies": 100,
     }
-    values__sequence, best_value, values_list, time_list = cnrpa(**inputs_values)
+    values_sequence, best_value, values_list, time_list = cnrpa(**inputs_values)
     print(f"Best Delta V: {best_value / 1000:.3f} km/s")
     print(f"Total time: {time_list[-1]:.2f} s")
     print(f"Total number of evaluations: {udp.count}")
+
+    figure = plt.figure(figsize=(10, 10))
+    plt.plot(time_list, values_list)
+    plt.title(f"Best value {best_value / 1000:.3f} km/s found first after {time_list[values_list.index(best_value)]:.3f} s")
+    plt.show()
+
+    axe = udp.plot(values_sequence, figsize=(20, 20))
+    # figure = axe.figure
+    axe.view_init(90, 0)
+    axe.axis("off")
+    axe.set_title(
+        "GcNRPA"
+        + r": $\Delta$V = "
+        + f"{best_value / 1000:.3f} km/s"
+    )
+    plt.show()

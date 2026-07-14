@@ -13,6 +13,7 @@ from copy import deepcopy
 import numpy as np
 import pykep as pk
 import pygmo as pg
+import matplotlib.pyplot as plt
 import cma
 from utils.basic_functions import normalize, denormalize
 from utils.constants import RANDOM_GENERATOR, DV_LAUNCHER, UNFEASIBILITY_VALUE
@@ -289,8 +290,8 @@ def genetic_algorithm(
 
 
 if __name__ == "__main__":
-    # Cassini problem
-    udp = pk.trajopt.gym.cassini1
+    # Problem
+    udp = pk.trajopt.gym.rosetta
 
     # Variables bounds
     bounds = [
@@ -303,11 +304,52 @@ if __name__ == "__main__":
         "evaluator": udp,
         "bounds": bounds,
         "solver": "sade",
-        "timeout": 10,
+        "timeout": 30,
         "population_size": 50,
     }
-    values__sequence, best_value, values_list, time_list = pygmo_baseline(
+
+    # Uniform
+    values_sequence, best_value, values_list, time_list = uniform_variables_values_vector(
         **inputs_values
     )
+
+    print(f"Best Delta V for uniform: {best_value / 1000:.3f} km/s")
+    print(f"Total time: {time_list[-1]:.2f} s")
+
+    # Problem
+    udp = pk.trajopt.gym.rosetta
+
+    # Variables bounds
+    bounds = [
+        (low_bound, high_bound)
+        for (low_bound, high_bound) in zip(udp.get_bounds()[0], udp.get_bounds()[1])
+    ]
+
+    # General input values
+    inputs_values = {
+        "evaluator": udp,
+        "bounds": bounds,
+        "solver": "gaco",
+        "timeout": 30,
+        "population_size": 50,
+    }
+
+    # Baseline
+
+    values_sequence, best_value, values_list, time_list = pygmo_baseline(
+        **inputs_values
+    )
+
     print(f"Best Delta V for {inputs_values["solver"]}: {best_value / 1000:.3f} km/s")
     print(f"Total time: {time_list[-1]:.2f} s")
+
+    axe = udp.plot(values_sequence, figsize=(20, 20))
+    # figure = axe.figure
+    axe.view_init(90, 0)
+    axe.axis("off")
+    axe.set_title(
+        "SADE"
+        + r": $\Delta$V = "
+        + f"{best_value / 1000:.3f} km/s"
+    )
+    plt.show()

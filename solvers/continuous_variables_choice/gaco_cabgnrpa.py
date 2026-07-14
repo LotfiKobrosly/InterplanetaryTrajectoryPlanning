@@ -70,7 +70,7 @@ def gaco_cabgnrpa_playout(
                         value = current_policy[key]
                     else:
                         value = np.array(current_policy[key])
-                    weight = gaussian_kernel.pdf(value)
+                    weight = gaussian_kernel.pdf(key)
                     if weight >= GAUSSIAN_KERNEL_THRESHOLD:
                         weights.append(weight)
                         values.append(value)
@@ -296,11 +296,11 @@ if __name__ == "__main__":
         "n_policies": 100,
         "tau": 1,
         "zeta": 0.2,
-        "kernel_size": 63,
+        "kernel_size": 20,
         "n_generations": 10,
         "elitism_factor": 0.2,
     }
-    values__sequence, best_value, values_list, time_list = gaco_cabgnrpa(
+    values_sequence, best_value, values_list, time_list = gaco_cabgnrpa(
         **inputs_values
     )
     print(f"Best Delta V: {best_value / 1000:.3f} km/s")

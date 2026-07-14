@@ -12,8 +12,8 @@ scratch*
 *Cassini*
 *build*
 *linux-gnu.so*
-*.png
-*.jpeg
-*.jpg
+*.png*
+*.jpeg*
+*.jpg*
 *CMake*
 

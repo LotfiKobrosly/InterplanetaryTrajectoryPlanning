@@ -97,7 +97,7 @@ def adaptive_bias_policy_playout(
                         value = current_policy[key]
                     else:
                         value = np.array(current_policy[key])
-                    weight = gaussian_kernel.pdf(value)
+                    weight = gaussian_kernel.pdf(key)
                     if weight >= GAUSSIAN_KERNEL_THRESHOLD:
                         weights.append(weight)
                         values.append(value)
@@ -411,11 +411,11 @@ if __name__ == "__main__":
         "timeout": 120,
         "level": 2,
         "learning_rate": 0.05,
-        "n_policies": 200,
+        "n_policies": 100,
         "tau": 1.25,
         "gamma": 0.2,
     }
-    values__sequence, best_value, values_list, time_list = cabgnrpa(**inputs_values)
+    values_sequence, best_value, values_list, time_list = cabgnrpa(**inputs_values)
     print(f"Best Delta V: {best_value / 1000:.3f} km/s")
     print(f"Total time: {time_list[-1]:.2f} s")
     print(f"Total number of evaluations: {udp.count}")

@@ -7,6 +7,7 @@ values_sequence = [departure_epoch, time_of_flight_0, ..., time_of_flight_n]
 import time
 import numpy as np
 import pykep as pk
+import matplotlib.pyplot as plt
 from utils.constants import RANDOM_GENERATOR, DV_LAUNCHER, UNFEASIBILITY_VALUE
 from utils.udp_wrapper import CountingEvaluator
 
@@ -110,11 +111,26 @@ if __name__ == "__main__":
     inputs_values = {
         "evaluator": udp,
         "bounds": bounds,
-        "timeout": 60,
-        "level": 2,
-        "bandwidth": 250,
+        "timeout": 600,
+        "level": 3,
+        "bandwidth": 300,
     }
-    values__sequence, best_value, values_list, time_list = cnmcts(**inputs_values)
+    values_sequence, best_value, values_list, time_list = cnmcts(**inputs_values)
     print(f"Best Delta V: {best_value / 1000:.3f} km/s")
     print(f"Total time: {time_list[-1]:.2f} s")
     print(f"Total number of evaluations: {udp.count}")
+
+    plt.plot(time_list, values_list)
+    plt.title("Improvements")
+    plt.show()
+
+    axe = udp.plot(values_sequence, figsize=(20, 20))
+    # figure = axe.figure
+    axe.view_init(90, 0)
+    axe.axis("off")
+    axe.set_title(
+        "cNMCTS"
+        + r": $\Delta$V = "
+        + f"{best_value / 1000:.3f} km/s"
+    )
+    plt.show()
