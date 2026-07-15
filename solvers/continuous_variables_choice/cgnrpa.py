@@ -325,11 +325,11 @@ if __name__ == "__main__":
         "evaluator": udp,
         "planets_sequence": planets_sequence,
         "bounds": bounds,
-        "timeout": 60,
-        "level": 2,
-        "learning_rate": 0.05,
-        "n_policies": 200,
-        "tau": 1.2,
+        "timeout": 120,
+        "level": 3,
+        "n_policies": 17908,
+        "learning_rate": 0.154937318595788,
+        "tau": 2.545153120408655,
     }
     values_sequence, best_value, values_list, time_list = cgnrpa(**inputs_values)
     print(f"Delta V: {best_value / 1000:.3f} km/s")

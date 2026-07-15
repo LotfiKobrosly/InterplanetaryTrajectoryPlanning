@@ -1,0 +1,1 @@
+{"level": 3, "n_policies": 297, "learning_rate": 0.5744087681488131, "archive_size": 81, "max_steps": 50, "movement_range": 0.00064558763425047, "initial_state_strategy": "mixed", "score_type": "differences_sum", "best_value": 2.740492463290444}

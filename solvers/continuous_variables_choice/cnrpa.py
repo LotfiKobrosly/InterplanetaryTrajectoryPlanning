@@ -266,7 +266,7 @@ def cnrpa(
 
 
 if __name__ == "__main__":
-    # Cassini problem
+    # Problem
     udp = CountingEvaluator(pk.trajopt.gym.cassini1)
 
     # Variables bounds
@@ -280,9 +280,9 @@ if __name__ == "__main__":
         "evaluator": udp,
         "bounds": bounds,
         "timeout": 180,
-        "level": 3,
-        "learning_rate": 0.05,
-        "n_policies": 100,
+        "level": 2,
+        "learning_rate": 0.0030163,
+        "n_policies": 5268,
     }
     values_sequence, best_value, values_list, time_list = cnrpa(**inputs_values)
     print(f"Best Delta V: {best_value / 1000:.3f} km/s")

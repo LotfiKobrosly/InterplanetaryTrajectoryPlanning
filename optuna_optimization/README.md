@@ -1,0 +1,2 @@
+# Optimizing hyperparameters for `cassini1`
+This folder stores the best values of the hyperparameters for algorithms implemented in this repo on the `pykep.trajopt.gym.cassini1` problem. The optimization occurred with a timeout of <=180sec.

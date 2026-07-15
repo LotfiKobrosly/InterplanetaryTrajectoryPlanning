@@ -3,7 +3,14 @@ Implementing basic functions
 """
 
 import numpy as np
+import bisect
 from utils.constants import RANDOM_GENERATOR
+
+
+def insert_sorted(list1, list2, val1, val2):
+    idx = bisect.bisect_left(list2, val2)
+    list1.insert(idx, val1)
+    list2.insert(idx, val2)
 
 
 def normalize(x, low, high):
