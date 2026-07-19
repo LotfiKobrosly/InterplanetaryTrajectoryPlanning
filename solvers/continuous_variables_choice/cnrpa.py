@@ -279,7 +279,7 @@ if __name__ == "__main__":
     inputs_values = {
         "evaluator": udp,
         "bounds": bounds,
-        "timeout": 180,
+        "timeout": 120,
         "level": 2,
         "learning_rate": 0.0030163,
         "n_policies": 5268,
@@ -288,6 +288,8 @@ if __name__ == "__main__":
     print(f"Best Delta V: {best_value / 1000:.3f} km/s")
     print(f"Total time: {time_list[-1]:.2f} s")
     print(f"Total number of evaluations: {udp.count}")
+    print("Details:")
+    print(udp.pretty(values_sequence))
 
     figure = plt.figure(figsize=(10, 10))
     plt.plot(time_list, values_list)

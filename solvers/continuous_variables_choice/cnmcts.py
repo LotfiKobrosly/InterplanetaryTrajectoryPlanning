@@ -99,7 +99,7 @@ def cnmcts(
 
 if __name__ == "__main__":
     # Cassini problem
-    udp = CountingEvaluator(pk.trajopt.gym.cassini1)
+    udp = CountingEvaluator(pk.trajopt.gym.cassini2)
 
     # Variables bounds
     bounds = [
@@ -111,8 +111,8 @@ if __name__ == "__main__":
     inputs_values = {
         "evaluator": udp,
         "bounds": bounds,
-        "timeout": 600,
-        "level": 3,
+        "timeout": 300,
+        "level": 2,
         "bandwidth": 300,
     }
     values_sequence, best_value, values_list, time_list = cnmcts(**inputs_values)

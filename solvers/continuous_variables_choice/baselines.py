@@ -304,7 +304,7 @@ if __name__ == "__main__":
         "evaluator": deepcopy(udp),
         "bounds": bounds,
         "solver": "sade",
-        "timeout": 30,
+        "timeout": 120,
         "population_size": 50,
     }
 
@@ -315,6 +315,7 @@ if __name__ == "__main__":
 
     print(f"Best Delta V for {inputs_values["solver"]}: {best_value / 1000:.3f} km/s")
     print(f"Total time: {time_list[-1]:.2f} s")
+    # print(udp.pretty(values_sequence))
 
     axe = udp.plot(values_sequence, figsize=(20, 20))
     # figure = axe.figure
