@@ -183,7 +183,7 @@ def adapt_policy(
 
     return policy
 
-def run_cnrpa(
+def run_optimizer_cnrpa(
     level: int = 0,
     n_policies: int = 100,
     learning_rate: float = 0.01,
@@ -241,7 +241,7 @@ def run_cnrpa(
     else:
         current_policy = deepcopy(policy)
         for current_iteration in range(n_policies):
-            sequence, actions_sequence, score, best_vector = run_cnrpa(
+            sequence, actions_sequence, score, best_vector = run_optimizer_cnrpa(
                 level=level - 1,
                 n_policies=n_policies,
                 policy=current_policy,
@@ -300,7 +300,7 @@ def run_cnrpa(
             best_values_archive[0],
         )
 
-def cnrpa(
+def optimizer_cnrpa(
     level: int = 1,
     n_policies: int = 100,
     learning_rate: float = 0.01,
@@ -329,7 +329,7 @@ def cnrpa(
     score_evolution, time_list = list(), list()
 
     start_time = time.time()
-    best_sequence, best_actions, best_score, best_vector = run_cnrpa(
+    best_sequence, best_actions, best_score, best_vector = run_optimizer_cnrpa(
         level=level,
         n_policies=n_policies,
         policy=dict(),
@@ -381,7 +381,7 @@ if __name__ == "__main__":
         "max_steps": 50,
         "movement_range": 0.00064558763425047,
     }
-    values_sequence, best_value, scores_list, time_list = cnrpa(**inputs_values)
+    values_sequence, best_value, scores_list, time_list = optimizer_cnrpa(**inputs_values)
     print(f"Best Delta V: {best_value / 1000:.3f} km/s")
     print(f"Total time: {time_list[-1]:.2f} s")
     # print(f"Total number of evaluations: {udp.count}")
