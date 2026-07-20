@@ -87,7 +87,7 @@ def main(save_file, best_sequence_file):
         "population_size": 500,  # for Genetic Algorithm
         "mutation_probability": 0.15,  # for Genetic Algorithm
         "mutation_effect": 0.25,  # for Genetic Algorithm
-        "timeout": 1,  # 5min is maximum execution time
+        "timeout": 300,  # 5min is maximum execution time
     }
 
     # Specific parameters
@@ -141,7 +141,7 @@ def main(save_file, best_sequence_file):
     }
 
     # Iterations
-    n_iterations = 2
+    n_iterations = 100
 
     # Storing results
     results = np.zeros((n_iterations, len(algorithms_list)))
