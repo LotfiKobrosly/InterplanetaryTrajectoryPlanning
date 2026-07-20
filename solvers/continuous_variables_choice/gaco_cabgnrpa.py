@@ -300,9 +300,7 @@ if __name__ == "__main__":
         "n_generations": 10,
         "elitism_factor": 0.2,
     }
-    values_sequence, best_value, values_list, time_list = gaco_cabgnrpa(
-        **inputs_values
-    )
+    values_sequence, best_value, values_list, time_list = gaco_cabgnrpa(**inputs_values)
     print(f"Best Delta V: {best_value / 1000:.3f} km/s")
     print(f"Total time: {time_list[-1]:.2f} s")
     print(f"Total number of evaluations: {udp.count}")

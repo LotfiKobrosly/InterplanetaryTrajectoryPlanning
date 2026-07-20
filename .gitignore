@@ -16,4 +16,5 @@ scratch*
 *.jpeg*
 *.jpg*
 *CMake*
+*json*
 

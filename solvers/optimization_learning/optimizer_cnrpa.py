@@ -25,6 +25,7 @@ INITIAL_STATE_STRATEGIES = [
     "best_current_value",
 ]
 
+
 def score_function(
     sequence: list = None,
     score_type: str = "best_delta_v",
@@ -40,9 +41,11 @@ def score_function(
     best_vector = sequence[np.argmin(delta_v_list)]
     if score_type == "best_delta_v":
         score = min(delta_v_list)
-    
+
     elif score_type == "weighted_differences_sum":
-        assert cumsum_weights is not None, "cumsum_weights must be speciefied for score_type = weighted_differences_sum"
+        assert (
+            cumsum_weights is not None
+        ), "cumsum_weights must be speciefied for score_type = weighted_differences_sum"
         differences = [
             delta_v - delta_v_list[index - 1]
             for index, delta_v in enumerate(delta_v_list[1:])
@@ -71,28 +74,36 @@ def get_initial_state(
     **kwargs,
 ):
     if initial_state_strategy == "mixed":
-        assert (mixture_probability is not None), "Undefined mixture_probability"
+        assert mixture_probability is not None, "Undefined mixture_probability"
         if RANDOM_GENERATOR.uniform() < mixture_probability:
             initial_state_strategy = "random"
         else:
             initial_state_strategy = "best_current_value"
 
     if initial_state_strategy == "random":
-        assert (vector_size is not None), "vector_size unspecified for random initial state_strategy"
+        assert (
+            vector_size is not None
+        ), "vector_size unspecified for random initial state_strategy"
         return RANDOM_GENERATOR.uniform(0, 1, size=vector_size)
     elif initial_state_strategy == "best_current_value":
-        assert (best_values_archive is not None) and (best_values_scores is not None), "best_values_archive is None for initial state strategy = " + initial_state_strategy
+        assert (best_values_archive is not None) and (best_values_scores is not None), (
+            "best_values_archive is None for initial state strategy = "
+            + initial_state_strategy
+        )
         if best_values_archive:
             probabilities = 1 / np.array(
                 [delta_v / sum(best_values_scores) for delta_v in best_values_scores]
             )
             probabilities /= np.sum(probabilities)
-            chosen_index = RANDOM_GENERATOR.choice(list(range(len(best_values_archive))), p=probabilities)
+            chosen_index = RANDOM_GENERATOR.choice(
+                list(range(len(best_values_archive))), p=probabilities
+            )
             return best_values_archive[chosen_index]
         else:
             return RANDOM_GENERATOR.uniform(0, 1, size=vector_size)
     else:
         raise ValueError("Wrong initial_state_strategy = " + initial_state_strategy)
+
 
 def policy_playout(
     initial_state: np.ndarray = None,
@@ -107,7 +118,7 @@ def policy_playout(
     sequence = [initial_state]
     vector_size = len(initial_state)
     action_sequence = list()
-    
+
     for _ in range(max_steps):
         if policy:
             gaussian_kernel = GaussianKernel(sequence[-1], sigma=std_factor)
@@ -134,7 +145,9 @@ def policy_playout(
         else:
             action = RANDOM_GENERATOR.uniform(*movement_range, size=vector_size)
         action_sequence.append(action)
-        sequence.append(truncate(sequence[-1] + action, [0] * vector_size, [1] * vector_size))
+        sequence.append(
+            truncate(sequence[-1] + action, [0] * vector_size, [1] * vector_size)
+        )
 
     return sequence, action_sequence
 
@@ -152,8 +165,10 @@ def adapt_policy(
         best_sequence = [code(list(vector)) for vector in best_sequence]
         for vector_index, vector in enumerate(best_sequence[:-1]):
             if vector in policy.keys():
-                policy[vector] += learning_rate * (best_actions[vector_index] - policy[vector])
-        
+                policy[vector] += learning_rate * (
+                    best_actions[vector_index] - policy[vector]
+                )
+
         # Adapt nearby states
         for state, action in policy.items():
             if state not in best_sequence:
@@ -171,17 +186,14 @@ def adapt_policy(
                         print("Weights:", np.array(weights).shape)
                         print("Values:", np.array(values).shape)
                         raise ValueError("Shape mismatch")
-                    policy[state] = (
-                        action
-                        + learning_rate
-                        * (new_value - action)
-                    )
+                    policy[state] = action + learning_rate * (new_value - action)
 
     else:
         for vector_index, vector in enumerate(best_sequence[:-1]):
             policy[code(list(vector))] = best_actions[vector_index]
 
     return policy
+
 
 def run_optimizer_cnrpa(
     level: int = 0,
@@ -224,7 +236,7 @@ def run_optimizer_cnrpa(
             policy=policy,
             max_steps=max_steps,
             movement_range=movement_range,
-            std_factor= 0.01 + 1 / np.sqrt(current_iteration + 1)
+            std_factor=0.01 + 1 / np.sqrt(current_iteration + 1),
         )
         score, best_vector = score_function(
             sequence=sequence,
@@ -264,11 +276,18 @@ def run_optimizer_cnrpa(
                 cumsum_weights=cumsum_weights,
                 movement_range=movement_range,
             )
-            current_delta_v = evaluator.fitness(denormalize(best_vector, lower_bounds, upper_bounds))[0]
+            current_delta_v = evaluator.fitness(
+                denormalize(best_vector, lower_bounds, upper_bounds)
+            )[0]
 
             # Potentially add new found value to the archive
             if best_values_archive:
-                insert_sorted(best_values_archive, best_values_scores, best_vector, current_delta_v)
+                insert_sorted(
+                    best_values_archive,
+                    best_values_scores,
+                    best_vector,
+                    current_delta_v,
+                )
                 while len(best_values_archive) > archive_size:
                     best_values_archive.pop(-1)
                     best_values_scores.pop(-1)
@@ -285,7 +304,7 @@ def run_optimizer_cnrpa(
                 policy=current_policy,
                 learning_rate=learning_rate,
                 best_actions=best_actions,
-                best_sequence=best_sequence
+                best_sequence=best_sequence,
             )
             current_time = time.time() - start_time
             score_evolution.append(best_score)
@@ -299,6 +318,7 @@ def run_optimizer_cnrpa(
             best_score,
             best_values_archive[0],
         )
+
 
 def optimizer_cnrpa(
     level: int = 1,
@@ -314,16 +334,13 @@ def optimizer_cnrpa(
     *args,
     **kwargs,
 ):
-    assert (evaluator is not None), "Undefined evaluator"
-    assert (level >= 0), "level is negative"
-    assert (n_policies > 0), "n_policies is not positive"
+    assert evaluator is not None, "Undefined evaluator"
+    assert level >= 0, "level is negative"
+    assert n_policies > 0, "n_policies is not positive"
     cumsum_weights = None
     if score_type == "weighted_differences_sum":
         cumsum_weights = np.array(
-            [
-                1 / (max_steps - counter)
-                for counter in range(max_steps)
-            ]
+            [1 / (max_steps - counter) for counter in range(max_steps)]
         )
         cumsum_weights /= np.sum(cumsum_weights)
     score_evolution, time_list = list(), list()
@@ -381,14 +398,18 @@ if __name__ == "__main__":
         "max_steps": 50,
         "movement_range": 0.00064558763425047,
     }
-    values_sequence, best_value, scores_list, time_list = optimizer_cnrpa(**inputs_values)
+    values_sequence, best_value, scores_list, time_list = optimizer_cnrpa(
+        **inputs_values
+    )
     print(f"Best Delta V: {best_value / 1000:.3f} km/s")
     print(f"Total time: {time_list[-1]:.2f} s")
     # print(f"Total number of evaluations: {udp.count}")
 
     figure = plt.figure(figsize=(10, 10))
     plt.plot(time_list, scores_list)
-    plt.title(f"Best value {min(scores_list) / 1000:.3f} km/s found first after {time_list[scores_list.index(min(scores_list))]:.3f} s")
+    plt.title(
+        f"Best value {min(scores_list) / 1000:.3f} km/s found first after {time_list[scores_list.index(min(scores_list))]:.3f} s"
+    )
     plt.show()
 
     axe = udp.plot(values_sequence, figsize=(20, 20))
@@ -396,8 +417,6 @@ if __name__ == "__main__":
     axe.view_init(90, 0)
     axe.axis("off")
     axe.set_title(
-        "Optimizing with GcNRPA"
-        + r": $\Delta$V = "
-        + f"{best_value / 1000:.3f} km/s"
+        "Optimizing with GcNRPA" + r": $\Delta$V = " + f"{best_value / 1000:.3f} km/s"
     )
     plt.show()

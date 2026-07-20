@@ -128,9 +128,5 @@ if __name__ == "__main__":
     # figure = axe.figure
     axe.view_init(90, 0)
     axe.axis("off")
-    axe.set_title(
-        "cNMCTS"
-        + r": $\Delta$V = "
-        + f"{best_value / 1000:.3f} km/s"
-    )
+    axe.set_title("cNMCTS" + r": $\Delta$V = " + f"{best_value / 1000:.3f} km/s")
     plt.show()

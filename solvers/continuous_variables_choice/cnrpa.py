@@ -103,6 +103,7 @@ def policy_playout(
         values_sequence.append(chosen_value)
     return values_sequence
 
+
 def adapt_policy(
     best_values_sequence: list,
     policy: dict,
@@ -110,24 +111,19 @@ def adapt_policy(
     bounds: list = None,
 ):
     best_values_sequence = [
-        normalize(value, *bound)
-        for (value, bound) in zip(best_values_sequence, bounds)
+        normalize(value, *bound) for (value, bound) in zip(best_values_sequence, bounds)
     ]
     if policy:
         for advancement, element in enumerate(best_values_sequence):
             low_bound, high_bound = bounds[advancement]
             if advancement == 0:
-                policy[advancement] += learning_rate * (
-                    element - policy[advancement]
-                )
+                policy[advancement] += learning_rate * (element - policy[advancement])
             else:
                 current_key = code(best_values_sequence[:advancement])
                 if current_key in policy[advancement].keys():
                     previous_value = policy[advancement][current_key]
                     policy[advancement][current_key] = (
-                        previous_value
-                        + learning_rate
-                        * (element - previous_value)
+                        previous_value + learning_rate * (element - previous_value)
                     )
                 else:
                     policy[advancement][current_key] = element
@@ -138,11 +134,7 @@ def adapt_policy(
                         previous_value = policy[advancement][key]
                         policy[advancement][key] = (
                             previous_value
-                            + learning_rate
-                            * weight
-                            * (
-                                element - previous_value
-                            )
+                            + learning_rate * weight * (element - previous_value)
                         )
 
     else:
@@ -212,7 +204,7 @@ def run_cnrpa(
             if total_delta_v < current_best_value:
                 current_best_value = total_delta_v
                 current_best_sequence = values_sequence[:]
-            
+
             if current_best_value < UNFEASIBILITY_VALUE:
                 current_policy = adapt_policy(
                     best_values_sequence=current_best_sequence,
@@ -293,16 +285,14 @@ if __name__ == "__main__":
 
     figure = plt.figure(figsize=(10, 10))
     plt.plot(time_list, values_list)
-    plt.title(f"Best value {best_value / 1000:.3f} km/s found first after {time_list[values_list.index(best_value)]:.3f} s")
+    plt.title(
+        f"Best value {best_value / 1000:.3f} km/s found first after {time_list[values_list.index(best_value)]:.3f} s"
+    )
     plt.show()
 
     axe = udp.plot(values_sequence, figsize=(20, 20))
     # figure = axe.figure
     axe.view_init(90, 0)
     axe.axis("off")
-    axe.set_title(
-        "GcNRPA"
-        + r": $\Delta$V = "
-        + f"{best_value / 1000:.3f} km/s"
-    )
+    axe.set_title("GcNRPA" + r": $\Delta$V = " + f"{best_value / 1000:.3f} km/s")
     plt.show()

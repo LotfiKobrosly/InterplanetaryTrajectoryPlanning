@@ -23,7 +23,7 @@ warnings.filterwarnings("ignore")
 PYGMO_SOLVERS = {
     "bee_colony": {
         "function": pg.bee_colony,
-        "solver_parameters": {"gen": 1500, "limit": 20, "memory": True},
+        "solver_parameters": {"gen": 1500, "limit": 20},
     },
     "cmaes": {
         "function": pg.cmaes,
@@ -303,8 +303,8 @@ if __name__ == "__main__":
     inputs_values = {
         "evaluator": deepcopy(udp),
         "bounds": bounds,
-        "solver": "sade",
-        "timeout": 120,
+        "solver": "bee_colony",
+        "timeout": 10,
         "population_size": 50,
     }
 

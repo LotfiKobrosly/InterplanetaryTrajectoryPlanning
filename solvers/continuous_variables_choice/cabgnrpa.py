@@ -90,7 +90,9 @@ def adaptive_bias_policy_playout(
             # Policy candidate
             if policy:
                 current_policy = policy[advancement]
-                gaussian_kernel = GaussianKernel(states_sequence[:advancement], sigma=std_factor)
+                gaussian_kernel = GaussianKernel(
+                    states_sequence[:advancement], sigma=std_factor
+                )
                 values, weights = list(), list()
                 for key in current_policy.keys():
                     if isinstance(current_policy[key], (float, int)):
@@ -210,7 +212,9 @@ def adaptive_bias_policy_playout(
                                 for candidate, candidate_weight in candidates.items():
                                     candidates[candidate] = (
                                         1
-                                        + gamma * weight * adaptation_kernel.pdf(candidate)
+                                        + gamma
+                                        * weight
+                                        * adaptation_kernel.pdf(candidate)
                                     ) * candidate_weight
                                 # Normalization
                                 noramlizing_factor = np.sum(list(candidates.values()))
@@ -264,6 +268,7 @@ def adaptive_bias_policy_playout(
 
         values_sequence.append(chosen_value)
     return values_sequence
+
 
 def run_cabgnrpa(
     evaluator: pk.trajopt.mga,
