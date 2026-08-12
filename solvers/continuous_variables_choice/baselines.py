@@ -291,7 +291,7 @@ def genetic_algorithm(
 
 if __name__ == "__main__":
     # Problem
-    udp = pk.trajopt.gym.cassini2
+    udp = pk.trajopt.gym.cassini1
 
     # Variables bounds
     bounds = [
@@ -303,7 +303,7 @@ if __name__ == "__main__":
     inputs_values = {
         "evaluator": deepcopy(udp),
         "bounds": bounds,
-        "solver": "bee_colony",
+        "solver": "simulated_annealing",
         "timeout": 10,
         "population_size": 50,
     }

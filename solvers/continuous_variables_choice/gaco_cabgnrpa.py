@@ -290,15 +290,14 @@ if __name__ == "__main__":
     inputs_values = {
         "evaluator": udp,
         "bounds": bounds,
-        "timeout": 60,
-        "level": 2,
-        "learning_rate": 0.05,
-        "n_policies": 100,
-        "tau": 1,
-        "zeta": 0.2,
-        "kernel_size": 20,
-        "n_generations": 10,
-        "elitism_factor": 0.2,
+        "timeout": 300,
+        "level": 3,
+        "n_policies": 14227,
+        "learning_rate": 0.0577735969238859,
+        "tau": 1.0901638319773115,
+        "gamma": 0.22973926381762905,
+        "zeta": 0.7979597964034295,
+        "elitism_factor": 0.21249669298578042
     }
     values_sequence, best_value, values_list, time_list = gaco_cabgnrpa(**inputs_values)
     print(f"Best Delta V: {best_value / 1000:.3f} km/s")

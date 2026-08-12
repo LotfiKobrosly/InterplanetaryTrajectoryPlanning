@@ -8,109 +8,27 @@ import numpy as np
 import pykep as pk
 import matplotlib.pyplot as plt
 from utils.gaussian_kernel import GaussianKernel
-from utils.constants import RANDOM_GENERATOR, GAUSSIAN_KERNEL_THRESHOLD
+from utils.constants import RANDOM_GENERATOR, RANDOM_SEED, GAUSSIAN_KERNEL_THRESHOLD
 from utils.basic_functions import *
 from utils.udp_wrapper import CountingEvaluator
+from solvers.continuous_variables_choice.baselines import *
+from solvers.optimization_learning.optimizer_cnrpa import (
+    SCORE_FUNCTION_LIST,
+    INITIAL_STATE_STRATEGIES,
+    score_function,
+    get_initial_state,
+    adapt_policy,
+)
 
-SCORE_FUNCTION_LIST = [
-    "best_delta_v",
-    "weighted_differences_sum",
-    "differences_sum",
-    "largest_diff",
-]
-
-INITIAL_STATE_STRATEGIES = [
-    "random",
-    "mixed",
-    "best_current_value",
-]
-
-
-def score_function(
-    sequence: list = None,
-    score_type: str = "best_delta_v",
-    evaluator: pk.trajopt.mga = None,
-    cumsum_weights: np.ndarray = None,
-    *args,
-    **kwargs,
-):
-    delta_v_list = [
-        evaluator.fitness(denormalize(values_vector, *evaluator.get_bounds()))[0]
-        for values_vector in sequence
-    ]
-    best_vector = sequence[np.argmin(delta_v_list)]
-    if score_type == "best_delta_v":
-        score = min(delta_v_list)
-
-    elif score_type == "weighted_differences_sum":
-        assert (
-            cumsum_weights is not None
-        ), "cumsum_weights must be speciefied for score_type = weighted_differences_sum"
-        differences = [
-            delta_v - delta_v_list[index - 1]
-            for index, delta_v in enumerate(delta_v_list[1:])
-        ]
-        score = np.sum(cumsum_weights * np.array(differences))
-
-    elif score_type == "differences_sum":
-        score = delta_v_list[-1] - delta_v_list[0]
-
-    elif score_type == "largest_diff":
-        score = min(delta_v_list) - max(delta_v_list)
-
-    else:
-        raise ValueError("Score type unknown")
-
-    return score, best_vector
-
-
-def get_initial_state(
-    initial_state_strategy: str = "random",
-    mixture_probability: float = None,
-    best_values_archive: list = None,
-    best_values_scores: list = None,
-    vector_size: int = None,
-    *args,
-    **kwargs,
-):
-    if initial_state_strategy == "mixed":
-        assert mixture_probability is not None, "Undefined mixture_probability"
-        if RANDOM_GENERATOR.uniform() < mixture_probability:
-            initial_state_strategy = "random"
-        else:
-            initial_state_strategy = "best_current_value"
-
-    if initial_state_strategy == "random":
-        assert (
-            vector_size is not None
-        ), "vector_size unspecified for random initial state_strategy"
-        return RANDOM_GENERATOR.uniform(0, 1, size=vector_size)
-    elif initial_state_strategy == "best_current_value":
-        assert (best_values_archive is not None) and (best_values_scores is not None), (
-            "best_values_archive is None for initial state strategy = "
-            + initial_state_strategy
-        )
-        if best_values_archive:
-            probabilities = 1 / np.array(
-                [delta_v / sum(best_values_scores) for delta_v in best_values_scores]
-            )
-            probabilities /= np.sum(probabilities)
-            chosen_index = RANDOM_GENERATOR.choice(
-                list(range(len(best_values_archive))), p=probabilities
-            )
-            return best_values_archive[chosen_index]
-        else:
-            return RANDOM_GENERATOR.uniform(0, 1, size=vector_size)
-    else:
-        raise ValueError("Wrong initial_state_strategy = " + initial_state_strategy)
-
-
-def policy_playout(
+def biased_policy_playout(
     initial_state: np.ndarray = None,
     policy: dict = None,
     max_steps: int = 100,
     std_factor: float = 0.1,
+    bias_value: np.ndarray = None,
+    bias_std: float = 1.0,
     movement_range: tuple = (-0.2, 0.2),
+    tau: float = 1.5,
     *args,
     **kwargs,
 ):
@@ -120,6 +38,8 @@ def policy_playout(
     action_sequence = list()
 
     for _ in range(max_steps):
+
+        # Policy component
         if policy:
             gaussian_kernel = GaussianKernel(sequence[-1], sigma=std_factor)
             values, weights = list(), list()
@@ -144,63 +64,41 @@ def policy_playout(
                 action = RANDOM_GENERATOR.uniform(*movement_range, size=vector_size)
         else:
             action = RANDOM_GENERATOR.uniform(*movement_range, size=vector_size)
-        action_sequence.append(action)
+
+        # Bias component
+        bias_direction = (bias_value - sequence[-1]) / movement_range[1]
+        # print("Shape:", np.shape(action))
+
+        # Mixing policy and bias
+        action_sequence.append(
+            sample_mixture_1d(
+                n_samples=vector_size,
+                mu1=action,
+                sigma1=std_factor,
+                mu2=bias_direction,
+                sigma2=bias_std,
+                weight1=1 / tau,
+            )[0]
+        )
+
+        
         sequence.append(
-            truncate(sequence[-1] + action, [0] * vector_size, [1] * vector_size)
+            truncate(sequence[-1] + action_sequence[-1], [0] * vector_size, [1] * vector_size)
         )
 
     return sequence, action_sequence
 
 
-def adapt_policy(
-    policy: dict = dict(),
-    learning_rate: float = 0.01,
-    best_sequence: list = None,
-    best_actions: list = None,
-    *args,
-    **kwargs,
-):
-    if policy:
-        # Adapt visited states
-        best_sequence = [code(list(vector)) for vector in best_sequence]
-        for vector_index, vector in enumerate(best_sequence[:-1]):
-            if vector in policy.keys():
-                policy[vector] += learning_rate * (
-                    best_actions[vector_index] - policy[vector]
-                )
 
-        # Adapt nearby states
-        for state, action in policy.items():
-            if state not in best_sequence:
-                kernel = GaussianKernel(state, 0.1)
-                weights, values = list(), list()
-                for vector_index, vector in enumerate(best_sequence[:-1]):
-                    weight = kernel.pdf(vector)
-                    if weight >= GAUSSIAN_KERNEL_THRESHOLD:
-                        weights.append(weight)
-                        values.append(best_actions[vector_index])
-                if weights:
-                    try:
-                        new_value = np.array(weights) @ np.array(values)
-                    except:
-                        print("Weights:", np.array(weights).shape)
-                        print("Values:", np.array(values).shape)
-                        raise ValueError("Shape mismatch")
-                    policy[state] = action + learning_rate * (new_value - action)
-
-    else:
-        for vector_index, vector in enumerate(best_sequence[:-1]):
-            policy[code(list(vector))] = best_actions[vector_index]
-
-    return policy
-
-
-def run_optimizer_cnrpa(
+def run_optimizer_cabgnrpa(
     level: int = 0,
     n_policies: int = 100,
     learning_rate: float = 0.01,
     evaluator: pk.trajopt.mga = None,
     policy: dict = None,
+    biases_values: list = None,
+    bias_handler: pg.algorithm = None,
+    zeta: float = 0.2,
     initial_state_strategy: str = "random",
     score_type: str = "best_delta_v",
     current_iteration: int = 0,
@@ -223,6 +121,32 @@ def run_optimizer_cnrpa(
     lower_bounds, upper_bounds = evaluator.get_bounds()
     current_time = time.time() - start_time
     if level == 0:
+        # GACO iteration
+        biases_values = bias_handler.evolve(biases_values)
+        bias_values = biases_values.get_x().copy()
+        bias_fitness = biases_values.get_f().copy()
+
+        # Get bias value
+        density_values = 1 / np.array(bias_fitness).flatten()
+        density_values /= density_values.sum()
+        bias = list()
+        bias_std = list()
+        for dimension in range(len(lower_bounds)):
+            values = bias_values[:, dimension].reshape(-1)
+            values = [normalize(value, lower_bounds[dimension], upper_bounds[dimension]) for value in values]
+
+            bias_center, bias_sigma = fit_gaussian_from_density(
+                values,
+                density_values,
+                zeta,
+            )
+            bias.append(bias_center)
+            bias_std.append(bias_sigma)
+            if bias_sigma < 0:
+                print("Here:", bias_sigma)
+
+        # Get initial state
+        ## For mixed initial state
         mixture_probability = 1 - current_iteration / n_policies
         initial_state = get_initial_state(
             initial_state_strategy=initial_state_strategy,
@@ -231,13 +155,19 @@ def run_optimizer_cnrpa(
             best_values_scores=best_values_scores,
             vector_size=len(lower_bounds),
         )
-        sequence, actions_sequence = policy_playout(
+
+        # Playout
+        sequence, actions_sequence = biased_policy_playout(
             initial_state=initial_state,
             policy=policy,
             max_steps=max_steps,
             movement_range=movement_range,
+            bias_value=bias,
+            bias_std=bias_std,
             std_factor=0.01 + 1 / np.sqrt(current_iteration + 1),
         )
+
+        # Compute score
         score, best_vector = score_function(
             sequence=sequence,
             score_type=score_type,
@@ -252,8 +182,10 @@ def run_optimizer_cnrpa(
         )
     else:
         current_policy = deepcopy(policy)
+        current_biases_values = deepcopy(biases_values)
+        current_bias_handler = deepcopy(bias_handler)
         for current_iteration in range(n_policies):
-            sequence, actions_sequence, score, best_vector = run_optimizer_cnrpa(
+            sequence, actions_sequence, score, best_vector = run_optimizer_cabgnrpa(
                 level=level - 1,
                 n_policies=n_policies,
                 policy=current_policy,
@@ -261,6 +193,9 @@ def run_optimizer_cnrpa(
                 evaluator=evaluator,
                 initial_state_strategy=initial_state_strategy,
                 score_type=score_type,
+                biases_values=current_biases_values,
+                bias_handler=current_bias_handler,
+                zeta=zeta,
                 best_score=best_score,
                 best_sequence=best_sequence,
                 best_actions=best_actions,
@@ -320,7 +255,7 @@ def run_optimizer_cnrpa(
         )
 
 
-def optimizer_cnrpa(
+def optimizer_cabgnrpa(
     level: int = 1,
     n_policies: int = 100,
     learning_rate: float = 0.01,
@@ -331,12 +266,18 @@ def optimizer_cnrpa(
     max_steps: int = 100,
     movement_range: float = 0.2,
     timeout: float = 10,
+    solver_parameters: dict = None,
+    solver: str = "gaco",
+    tau: float = 1.5,
+    zeta: float = 0.2,
     *args,
     **kwargs,
 ):
     assert evaluator is not None, "Undefined evaluator"
     assert level >= 0, "level is negative"
     assert n_policies > 0, "n_policies is not positive"
+
+    # If weighted cumulative sum
     cumsum_weights = None
     if score_type == "weighted_differences_sum":
         cumsum_weights = np.array(
@@ -345,11 +286,26 @@ def optimizer_cnrpa(
         cumsum_weights /= np.sum(cumsum_weights)
     score_evolution, time_list = list(), list()
 
+    # Define GACO bias generator
+    solver = PYGMO_SOLVERS[solver]["function"]
+
+    # kernel_size = solver_parameters["kernel_size"]
+    # n_generations = solver_parameters["n_generations"]
+    # elitism_factor = solver_parameters["elitism_factor"]
+    problem = pg.problem(evaluator)
+    bias_handler = pg.algorithm(
+        solver(**solver_parameters)
+    )
+    biases_values = pg.population(problem, size=archive_size, seed=RANDOM_SEED)
+
     start_time = time.time()
-    best_sequence, best_actions, best_score, best_vector = run_optimizer_cnrpa(
+    best_sequence, best_actions, best_score, best_vector = run_optimizer_cabgnrpa(
         level=level,
         n_policies=n_policies,
         policy=dict(),
+        biases_values=biases_values,
+        bias_handler=bias_handler,
+        zeta=zeta,
         learning_rate=learning_rate,
         evaluator=evaluator,
         initial_state_strategy=initial_state_strategy,
@@ -366,6 +322,7 @@ def optimizer_cnrpa(
         max_steps=max_steps,
         start_time=start_time,
         timeout=timeout,
+        tau=tau,
         cumsum_weights=cumsum_weights,
         movement_range=(-movement_range, movement_range),
     )
@@ -376,29 +333,38 @@ def optimizer_cnrpa(
 
 if __name__ == "__main__":
     # Cassini problem
-    udp = CountingEvaluator(pk.trajopt.gym.rosetta)
+    udp = CountingEvaluator(pk.trajopt.gym.cassini2)
 
-    # Variables bounds
-    bounds = [
-        (low_bound, high_bound)
-        for (low_bound, high_bound) in zip(udp.get_bounds()[0], udp.get_bounds()[1])
-    ]
+    # # Variables bounds
+    # bounds = [
+    #     (low_bound, high_bound)
+    #     for (low_bound, high_bound) in zip(udp.get_bounds()[0], udp.get_bounds()[1])
+    # ]
 
     # General input values
     inputs_values = {
         "evaluator": udp,
-        "bounds": bounds,
-        "timeout": 120,
-        "level": 3,
+        "timeout": 180,
+        "level": 2,
+        "tau": 1.5,
         "learning_rate": 0.5744087681488131,
         "n_policies": 297,
         "initial_state_strategy": "mixed",
         "score_type": "differences_sum",
-        "archive_size": 81,
+        "archive_size": 80,
         "max_steps": 50,
-        "movement_range": 0.01,
+        "zeta": 0.5,
+        "movement_range": 0.001,
+        "solver": "cmaes",
+        "solver_parameters": {
+            "gen": 1500,
+            "force_bounds": True,
+            "sigma0": 0.5,
+            "ftol": 1e-4,
+            "memory": True,
+        },
     }
-    values_sequence, best_value, scores_list, time_list = optimizer_cnrpa(
+    values_sequence, best_value, scores_list, time_list = optimizer_cabgnrpa(
         **inputs_values
     )
     print(f"Best Delta V: {best_value / 1000:.3f} km/s")
@@ -417,6 +383,6 @@ if __name__ == "__main__":
     axe.view_init(90, 0)
     axe.axis("off")
     axe.set_title(
-        "Optimizing with GcNRPA" + r": $\Delta$V = " + f"{best_value / 1000:.3f} km/s"
+        "Optimizing with GcABGNRPA" + r": $\Delta$V = " + f"{best_value / 1000:.3f} km/s"
     )
     plt.show()
