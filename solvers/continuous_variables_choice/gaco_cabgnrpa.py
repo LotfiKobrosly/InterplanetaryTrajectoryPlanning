@@ -278,7 +278,7 @@ def gaco_cabgnrpa(
 
 if __name__ == "__main__":
     # Cassini problem
-    udp = CountingEvaluator(pk.trajopt.gym.cassini1)
+    udp = CountingEvaluator(pk.trajopt.gym.cassini2)
 
     # Variables bounds
     bounds = [
@@ -292,12 +292,12 @@ if __name__ == "__main__":
         "bounds": bounds,
         "timeout": 300,
         "level": 3,
-        "n_policies": 14227,
-        "learning_rate": 0.0577735969238859,
+        "n_policies": 15517,
+        "learning_rate": 0.16641674377937352,
         "tau": 1.0901638319773115,
         "gamma": 0.22973926381762905,
-        "zeta": 0.7979597964034295,
-        "elitism_factor": 0.21249669298578042
+        "zeta": 0.5175888085994454,
+        "elitism_factor": 0.1697354789327469,
     }
     values_sequence, best_value, values_list, time_list = gaco_cabgnrpa(**inputs_values)
     print(f"Best Delta V: {best_value / 1000:.3f} km/s")

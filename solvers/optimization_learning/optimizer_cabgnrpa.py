@@ -12,13 +12,12 @@ from utils.constants import RANDOM_GENERATOR, RANDOM_SEED, GAUSSIAN_KERNEL_THRES
 from utils.basic_functions import *
 from utils.udp_wrapper import CountingEvaluator
 from solvers.continuous_variables_choice.baselines import *
-from solvers.optimization_learning.optimizer_cnrpa import (
-    SCORE_FUNCTION_LIST,
-    INITIAL_STATE_STRATEGIES,
+from solvers.optimization_learning.optimizer_cnrpa import adapt_policy
+from solvers.optimization_learning.general import (
     score_function,
     get_initial_state,
-    adapt_policy,
 )
+
 
 def biased_policy_playout(
     initial_state: np.ndarray = None,
@@ -81,13 +80,13 @@ def biased_policy_playout(
             )[0]
         )
 
-        
         sequence.append(
-            truncate(sequence[-1] + action_sequence[-1], [0] * vector_size, [1] * vector_size)
+            truncate(
+                sequence[-1] + action_sequence[-1], [0] * vector_size, [1] * vector_size
+            )
         )
 
     return sequence, action_sequence
-
 
 
 def run_optimizer_cabgnrpa(
@@ -133,7 +132,10 @@ def run_optimizer_cabgnrpa(
         bias_std = list()
         for dimension in range(len(lower_bounds)):
             values = bias_values[:, dimension].reshape(-1)
-            values = [normalize(value, lower_bounds[dimension], upper_bounds[dimension]) for value in values]
+            values = [
+                normalize(value, lower_bounds[dimension], upper_bounds[dimension])
+                for value in values
+            ]
 
             bias_center, bias_sigma = fit_gaussian_from_density(
                 values,
@@ -293,9 +295,7 @@ def optimizer_cabgnrpa(
     # n_generations = solver_parameters["n_generations"]
     # elitism_factor = solver_parameters["elitism_factor"]
     problem = pg.problem(evaluator)
-    bias_handler = pg.algorithm(
-        solver(**solver_parameters)
-    )
+    bias_handler = pg.algorithm(solver(**solver_parameters))
     biases_values = pg.population(problem, size=archive_size, seed=RANDOM_SEED)
 
     start_time = time.time()
@@ -333,7 +333,7 @@ def optimizer_cabgnrpa(
 
 if __name__ == "__main__":
     # Cassini problem
-    udp = CountingEvaluator(pk.trajopt.gym.cassini2)
+    udp = CountingEvaluator(pk.trajopt.gym.cassini1)
 
     # # Variables bounds
     # bounds = [
@@ -344,20 +344,20 @@ if __name__ == "__main__":
     # General input values
     inputs_values = {
         "evaluator": udp,
-        "timeout": 180,
+        "timeout": 300,
         "level": 2,
-        "tau": 1.5,
-        "learning_rate": 0.5744087681488131,
-        "n_policies": 297,
+        "tau": 4,
+        "learning_rate": 0.06,
+        "n_policies": 40000,
         "initial_state_strategy": "mixed",
-        "score_type": "differences_sum",
-        "archive_size": 80,
-        "max_steps": 50,
+        "score_type": "weighted_differences_sum",
+        "archive_size": 100,
+        "max_steps": 60,
         "zeta": 0.5,
-        "movement_range": 0.001,
+        "movement_range": 0.1,
         "solver": "cmaes",
         "solver_parameters": {
-            "gen": 1500,
+            "gen": 10,
             "force_bounds": True,
             "sigma0": 0.5,
             "ftol": 1e-4,
@@ -383,6 +383,8 @@ if __name__ == "__main__":
     axe.view_init(90, 0)
     axe.axis("off")
     axe.set_title(
-        "Optimizing with GcABGNRPA" + r": $\Delta$V = " + f"{best_value / 1000:.3f} km/s"
+        "Optimizing with GcABGNRPA"
+        + r": $\Delta$V = "
+        + f"{best_value / 1000:.3f} km/s"
     )
     plt.show()
