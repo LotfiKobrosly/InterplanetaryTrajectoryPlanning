@@ -76,10 +76,6 @@ def run_optimizer_cnmcts(
                 current_time = time.time() - start_time
                 if current_time > timeout:
                     break
-
-                if (len(temporary_sequence) - 1) != len(cumsum_weights):
-                    for element_id, element in enumerate(temporary_sequence):
-                        print("Vector n°:", element_id, ":", element)
                 score, best_current_vector = score_function(
                     sequence=temporary_sequence,
                     score_type=score_type,
