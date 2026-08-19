@@ -86,8 +86,9 @@ def get_initial_state(
             + initial_state_strategy
         )
         if best_values_archive:
+            normalizer = sum(best_values_scores)
             probabilities = 1 / np.array(
-                [delta_v / sum(best_values_scores) for delta_v in best_values_scores]
+                [delta_v / normalizer for delta_v in best_values_scores]
             )
             probabilities /= np.sum(probabilities)
             chosen_index = RANDOM_GENERATOR.choice(

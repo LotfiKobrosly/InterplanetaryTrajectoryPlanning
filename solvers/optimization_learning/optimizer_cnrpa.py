@@ -300,7 +300,7 @@ if __name__ == "__main__":
         "timeout": 300,
         "level": 2,
         "learning_rate": 0.05,
-        "n_policies": 10000,
+        "n_policies": 5000,
         "initial_state_strategy": "mixed",
         "score_type": "best_delta_v",
         "archive_size": 100,
@@ -310,14 +310,14 @@ if __name__ == "__main__":
     values_sequence, best_value, scores_list, time_list = optimizer_cnrpa(
         **inputs_values
     )
-    print(f"Best Delta V: {best_value / 1000:.3f} km/s")
+    print(f"Best Delta V: {best_value / 1000:.6f} km/s")
     print(f"Total time: {time_list[-1]:.2f} s")
     # print(f"Total number of evaluations: {udp.count}")
 
     figure = plt.figure(figsize=(10, 10))
     plt.plot(time_list, scores_list)
     plt.title(
-        f"Best value {min(scores_list) / 1000:.3f} km/s found first after {time_list[scores_list.index(min(scores_list))]:.3f} s"
+        f"Best value {min(scores_list) / 1000:.6f} km/s found first after {time_list[scores_list.index(min(scores_list))]:.3f} s"
     )
     plt.show()
 
