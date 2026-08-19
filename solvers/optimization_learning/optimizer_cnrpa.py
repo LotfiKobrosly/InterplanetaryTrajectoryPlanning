@@ -145,7 +145,7 @@ def run_optimizer_cnrpa(
             policy=policy,
             max_steps=max_steps,
             movement_range=movement_range,
-            std_factor=0.01 + 1 / np.sqrt(current_iteration + 1),
+            std_factor=0.0001 + 1 / np.sqrt(current_iteration + 1),
         )
         score, best_vector = score_function(
             sequence=sequence,
@@ -285,7 +285,7 @@ def optimizer_cnrpa(
 
 if __name__ == "__main__":
     # Cassini problem
-    udp = CountingEvaluator(pk.trajopt.gym.cassini2)
+    udp = CountingEvaluator(pk.trajopt.gym.cassini1)
 
     # Variables bounds
     bounds = [
@@ -297,15 +297,15 @@ if __name__ == "__main__":
     inputs_values = {
         "evaluator": udp,
         "bounds": bounds,
-        "timeout": 600,
+        "timeout": 300,
         "level": 2,
-        "learning_rate": 0.05744087681488131,
-        "n_policies": 50000,
+        "learning_rate": 0.05,
+        "n_policies": 10000,
         "initial_state_strategy": "mixed",
-        "score_type": "weighted_differences_sum",
-        "archive_size": 90,
-        "max_steps": 60,
-        "movement_range": 0.01,
+        "score_type": "best_delta_v",
+        "archive_size": 100,
+        "max_steps": 1,
+        "movement_range": 0.001,
     }
     values_sequence, best_value, scores_list, time_list = optimizer_cnrpa(
         **inputs_values
