@@ -9,6 +9,7 @@ import pykep as pk
 import matplotlib.pyplot as plt
 from utils.constants import RANDOM_GENERATOR
 from utils.basic_functions import *
+from solvers.continuous_variables_choice.baselines import pygmo_baseline
 from solvers.optimization_learning.general import score_function, get_initial_state
 
 
@@ -108,6 +109,7 @@ def optimizer_cnmcts(
     score_type: str = "best_delta_v",
     max_steps: int = 100,
     movement_magnitude: float = 0.2,
+    warm_starter: str = None,
     timeout: float = 10,
     *args,
     **kwargs,
@@ -128,6 +130,16 @@ def optimizer_cnmcts(
         sequence = [RANDOM_GENERATOR.uniform(0, 1, size=len(lower_bounds))]
     elif initial_state_strategy == "middle":
         sequence = [[0.5] * len(lower_bounds)]
+    elif initial_state_strategy == "warm_start":
+        assert (warm_starter is not None), "Unspecified warm starting algorithm"
+        warm_start_parameters = {
+            "evaluator": deepcopy(evaluator),
+            "solver": warm_starter,
+            "timeout": 10,
+            "population_size": 50,
+        }
+        start_vector, _, _, _ = pygmo_baseline(**warm_start_parameters)
+        sequence = [normalize(start_vector, *evaluator.get_bounds())]
     else:
         raise ValueError("Unknown initial state")
     start_time = time.time()
@@ -163,13 +175,14 @@ if __name__ == "__main__":
     # General input values
     inputs_values = {
         "evaluator": udp,
-        "timeout": 60,
-        "level": 3,
-        "bandwidth": 10,
-        "initial_state_strategy": "middle",
+        "timeout": 300,
+        "level": 2,
+        "bandwidth": 400,
+        "initial_state_strategy": "warm_start",
         "score_type": "weighted_differences_sum",
-        "max_steps": 20,
-        "movement_range": 0.01,
+        "max_steps": 50,
+        "movement_range": 0.001,
+        "warm_starter": "pso",
     }
     values_sequence, best_value, scores_list, time_list = optimizer_cnmcts(
         **inputs_values
