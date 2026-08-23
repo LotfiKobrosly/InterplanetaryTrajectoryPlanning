@@ -23,6 +23,7 @@ from utils.constants import UNFEASIBILITY_VALUE, DV_LAUNCHER
 def main(save_file, best_sequence_file):
 
     print("Testing Cassini MGA:\n")
+    save_folder = "./cassini2_results/"
 
     SAMPLING_FUNCTIONS = {
         "cmaes": pygmo_baseline,
@@ -32,12 +33,12 @@ def main(save_file, best_sequence_file):
         "pso": pygmo_baseline,
         "gaco": pygmo_baseline,
         "bee_colony": pygmo_baseline,
-        "uniform": uniform_variables_values_vector,
-        "cnmcts": cnmcts,
+        # "uniform": uniform_variables_values_vector,
+        # "cnmcts": cnmcts,
         "cnrpa": cnrpa,
-        "cgnrpa": cgnrpa,
-        "cabgnrpa": cabgnrpa,
-        "gaco_cabgnrpa": gaco_cabgnrpa,
+        # "cgnrpa": cgnrpa,
+        # "cabgnrpa": cabgnrpa,
+        # "gaco_cabgnrpa": gaco_cabgnrpa,
         "optimizer_cnrpa": optimizer_cnrpa,
     }
 
@@ -51,26 +52,26 @@ def main(save_file, best_sequence_file):
         "pso": "Particle Swarm Optimization (pygmo)",
         "gaco": "Generalized Ant Colony Optimization (pygmo)",
         "bee_colony": "Artificial Bee Colony (pygmo)",
-        "uniform": "Uniform sampling",
-        "gaussian_cma_es": "Custom Gaussian CMA-ES",
-        "cnmcts": "cNMCS",
+        # "uniform": "Uniform sampling",
+        # "gaussian_cma_es": "Custom Gaussian CMA-ES",
+        # "cnmcts": "cNMCS",
         "cnrpa": "GcNRPA",
-        "cgnrpa": "GcGNRPA",
-        "cabgnrpa": "GcABGNRPA",
-        "gaco_cabgnrpa": "GACO GcABGNRA",
+        # "cgnrpa": "GcGNRPA",
+        # "cabgnrpa": "GcABGNRPA",
+        # "gaco_cabgnrpa": "GACO GcABGNRA",
         "optimizer_cnrpa": "Optimizer GcNRPA",
     }
 
     # Cassini problem
-    udp = pk.trajopt.gym.cassini1
-    planets_sequence = [
-        pk.planet(pk.udpla.jpl_lp("Earth")),
-        pk.planet(pk.udpla.jpl_lp("Venus")),
-        pk.planet(pk.udpla.jpl_lp("Venus")),
-        pk.planet(pk.udpla.jpl_lp("Earth")),
-        pk.planet(pk.udpla.jpl_lp("Jupiter")),
-        pk.planet(pk.udpla.jpl_lp("Saturn")),
-    ]
+    udp = pk.trajopt.gym.cassini2
+    # planets_sequence = [
+    #     pk.planet(pk.udpla.jpl_lp("Earth")),
+    #     pk.planet(pk.udpla.jpl_lp("Venus")),
+    #     pk.planet(pk.udpla.jpl_lp("Venus")),
+    #     pk.planet(pk.udpla.jpl_lp("Earth")),
+    #     pk.planet(pk.udpla.jpl_lp("Jupiter")),
+    #     pk.planet(pk.udpla.jpl_lp("Saturn")),
+    # ]
 
     # Variables bounds
     bounds = [
@@ -80,14 +81,14 @@ def main(save_file, best_sequence_file):
 
     # General input values
     inputs_values = {
-        "planets_sequence": planets_sequence,
+        # "planets_sequence": planets_sequence,
         "bounds": bounds,
-        "n_iterations": 2500,  # for uniform and gaussian sampling
-        "n_generations": 1000,  # for Genetic Algorithm
-        "population_size": 500,  # for Genetic Algorithm
-        "mutation_probability": 0.15,  # for Genetic Algorithm
-        "mutation_effect": 0.25,  # for Genetic Algorithm
-        "timeout": 300,  # 5min is maximum execution time
+        # "n_iterations": 2500,  # for uniform and gaussian sampling
+        # "n_generations": 1000,  # for Genetic Algorithm
+        # "population_size": 500,  # for Genetic Algorithm
+        # "mutation_probability": 0.15,  # for Genetic Algorithm
+        # "mutation_effect": 0.25,  # for Genetic Algorithm
+        "timeout": 3,  # 5min is maximum execution time
     }
 
     # Specific parameters
@@ -99,49 +100,49 @@ def main(save_file, best_sequence_file):
         "gaco": {"solver": "gaco"},
         "bee_colony": {"solver": "bee_colony"},
         "simulated_annealing": {"solver": "simulated_annealing"},
-        "uniform": {},
-        "cnmcts": {"level": 2, "bandwidth": 672},
+        # "uniform": {},
+        # "cnmcts": {"level": 2, "bandwidth": 672},
         "cnrpa": {
             "level": 2,
             "n_policies": 33155,
-            "learning_rate": 0.011047321079505495,
+            "learning_rate": 0.01,
         },
-        "cgnrpa": {
-            "level": 3,
-            "n_policies": 17908,
-            "learning_rate": 0.154937318595788,
-            "tau": 2.545153120408655,
-        },
-        "cabgnrpa": {
-            "level": 1,
-            "n_policies": 15930,
-            "learning_rate": 0.034981412158836295,
-            "tau": 1.3316892372714013,
-            "gamma": 0.02938863839421489,
-        },
-        "gaco_cabgnrpa": {
-            "level": 3,
-            "n_policies": 29325,
-            "learning_rate": 0.09447145922848464,
-            "tau": 0.38210537834931463,
-            "gamma": 0.13056072395524418,
-            "zeta": 0.7086734675139809,
-            "elitism_factor": 0.020372968801098613,
-        },
+        # "cgnrpa": {
+        #     "level": 3,
+        #     "n_policies": 17908,
+        #     "learning_rate": 0.154937318595788,
+        #     "tau": 2.545153120408655,
+        # },
+        # "cabgnrpa": {
+        #     "level": 1,
+        #     "n_policies": 15930,
+        #     "learning_rate": 0.034981412158836295,
+        #     "tau": 1.3316892372714013,
+        #     "gamma": 0.02938863839421489,
+        # },
+        # "gaco_cabgnrpa": {
+        #     "level": 3,
+        #     "n_policies": 29325,
+        #     "learning_rate": 0.09447145922848464,
+        #     "tau": 0.38210537834931463,
+        #     "gamma": 0.13056072395524418,
+        #     "zeta": 0.7086734675139809,
+        #     "elitism_factor": 0.020372968801098613,
+        # },
         "optimizer_cnrpa": {
-            "level": 3,
-            "n_policies": 297,
-            "learning_rate": 0.5744087681488131,
-            "archive_size": 81,
-            "max_steps": 50,
-            "movement_range": 0.00064558763425047,
+            "level": 2,
+            "n_policies": 20000,
+            "learning_rate": 0.001,
+            "archive_size": 100,
+            "max_steps": 1,
+            "movement_range": 0.001,
             "initial_state_strategy": "mixed",
-            "score_type": "differences_sum",
+            "score_type": "best_delta_v",
         },
     }
 
     # Iterations
-    n_iterations = 100
+    n_iterations = 2 #100
 
     # Storing results
     results = np.zeros((n_iterations, len(algorithms_list)))
@@ -174,10 +175,10 @@ def main(save_file, best_sequence_file):
     dataframe = pd.DataFrame(
         results, index=list(range(n_iterations)), columns=algorithms_list
     )
-    dataframe.to_excel(save_file)
+    dataframe.to_excel(save_folder + save_file)
 
     # Storing best sequences
-    with open(best_sequence_file, "w") as file:
+    with open(save_folder + best_sequence_file, "w") as file:
         json.dump(best_sequences, file)
 
 
