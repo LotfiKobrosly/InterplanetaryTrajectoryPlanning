@@ -8,6 +8,7 @@ In this file, the values sequence is represented as follows:
 """
 
 import time
+import json
 import warnings
 from copy import deepcopy
 import numpy as np
@@ -28,7 +29,7 @@ PYGMO_SOLVERS = {
     "cmaes": {
         "function": pg.cmaes,
         "solver_parameters": {
-            "gen": 1500,
+            "gen": 2500,
             "force_bounds": True,
             "sigma0": 0.5,
             "ftol": 1e-4,
@@ -291,7 +292,7 @@ def genetic_algorithm(
 
 if __name__ == "__main__":
     # Problem
-    udp = pk.trajopt.gym.cassini2
+    udp = pk.trajopt.gym.cassini1
 
     # Variables bounds
     bounds = [
@@ -303,12 +304,13 @@ if __name__ == "__main__":
     inputs_values = {
         "evaluator": deepcopy(udp),
         "bounds": bounds,
-        "solver": "sade",
-        "timeout": 10,
+        "solver": "cmaes",
+        "timeout": 60,
         "population_size": 50,
     }
 
     # Baseline
+    print("Running", inputs_values["solver"].upper())
     values_sequence, best_value, values_list, time_list = pygmo_baseline(
         **inputs_values
     )
@@ -316,6 +318,10 @@ if __name__ == "__main__":
     print(f"Best Delta V for {inputs_values["solver"]}: {best_value / 1000:.3f} km/s")
     print(f"Total time: {time_list[-1]:.2f} s")
     # print(udp.pretty(values_sequence))
+
+    to_save = {"scores_evolution": values_list, "time_list": time_list}
+    with open(inputs_values["solver"]+ "_cassini1_score_evolution.json", "w") as file:
+        json.dump(to_save, file)
 
     axe = udp.plot(values_sequence, figsize=(20, 20))
     # figure = axe.figure

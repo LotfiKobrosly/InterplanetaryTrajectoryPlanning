@@ -20,6 +20,7 @@ dimension) and we sample around it using a normal distribution (parameters are t
 """
 
 import time
+import json
 from copy import deepcopy
 import numpy as np
 import pykep as pk
@@ -259,7 +260,7 @@ def cnrpa(
 
 if __name__ == "__main__":
     # Problem
-    udp = CountingEvaluator(pk.trajopt.gym.cassini2)
+    udp = CountingEvaluator(pk.trajopt.gym.cassini1)
 
     # Variables bounds
     bounds = [
@@ -271,7 +272,7 @@ if __name__ == "__main__":
     inputs_values = {
         "evaluator": udp,
         "bounds": bounds,
-        "timeout": 600,
+        "timeout": 1800,
         "level": 2,
         "learning_rate": 0.01,
         "n_policies": 10000,
@@ -280,6 +281,9 @@ if __name__ == "__main__":
     print(f"Best Delta V: {best_value / 1000:.3f} km/s")
     print(f"Total time: {time_list[-1]:.2f} s")
     print(f"Total number of evaluations: {udp.count}")
+    to_save = {"scores_evolution": values_list, "time_list": time_list}
+    with open("GcNRPA_cassini1_score_evolution.json", "w") as file:
+        json.dump(to_save, file)
     # print("Details:")
     # print(udp.pretty(values_sequence))
 

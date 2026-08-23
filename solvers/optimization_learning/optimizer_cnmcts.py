@@ -3,6 +3,7 @@ Implements a cNMCTS aiming to learn how to optimize the search for better values
 """
 
 import time
+import json
 from copy import deepcopy
 import numpy as np
 import pykep as pk
@@ -32,6 +33,7 @@ def run_optimizer_cnmcts(
 ):
     current_time = time.time() - start_time
     vector_size = len(sequence[0])
+    assert (level >= 0), "level cannot be non-positive"
     while len(sequence) <= max_steps:
         if level == 0:
             sequence.append(
@@ -177,12 +179,12 @@ if __name__ == "__main__":
         "evaluator": udp,
         "timeout": 300,
         "level": 2,
-        "bandwidth": 400,
+        "bandwidth": 1000,
         "initial_state_strategy": "warm_start",
-        "score_type": "weighted_differences_sum",
-        "max_steps": 50,
+        "score_type": "best_delta_v",
+        "max_steps": 4000,
         "movement_range": 0.001,
-        "warm_starter": "pso",
+        "warm_starter": "sade",
     }
     values_sequence, best_value, scores_list, time_list = optimizer_cnmcts(
         **inputs_values
@@ -190,6 +192,9 @@ if __name__ == "__main__":
     print(f"Best Delta V: {best_value / 1000:.3f} km/s")
     print(f"Total time: {time_list[-1]:.2f} s")
     # print(f"Total number of evaluations: {udp.count}")
+    to_save = {"scores_evolution": scores_list, "time_list": time_list}
+    with open("Optimizer_cNMCTS_SADE_cassini1_score_evolution.json", "w") as file:
+        json.dump(to_save, file)
 
     figure = plt.figure(figsize=(10, 10))
     plt.plot(time_list, scores_list)

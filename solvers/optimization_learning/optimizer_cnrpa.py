@@ -3,6 +3,7 @@ Implements a GcNRPA aiming to learn how to optimize the search for better values
 """
 
 import time
+import json
 from copy import deepcopy
 import numpy as np
 import pykep as pk
@@ -297,10 +298,10 @@ if __name__ == "__main__":
     inputs_values = {
         "evaluator": udp,
         "bounds": bounds,
-        "timeout": 300,
+        "timeout": 1800,
         "level": 2,
-        "learning_rate": 0.002,
-        "n_policies": 10000,
+        "learning_rate": 0.0025,
+        "n_policies": 20000,
         "initial_state_strategy": "mixed",
         "score_type": "best_delta_v",
         "archive_size": 100,
@@ -314,8 +315,12 @@ if __name__ == "__main__":
     print(f"Total time: {time_list[-1]:.2f} s")
     # print(f"Total number of evaluations: {udp.count}")
 
+    to_save = {"scores_evolution": scores_list, "time_list": time_list}
+    with open("Optimizer_GcNRPA_cassini1_score_evolution.json", "w") as file:
+        json.dump(to_save, file)
+
     figure = plt.figure(figsize=(10, 10))
-    plt.plot(time_list, scores_list)
+    plt.plot(np.log(time_list), scores_list)
     plt.title(
         f"Best value {min(scores_list) / 1000:.6f} km/s found first after {time_list[scores_list.index(min(scores_list))]:.3f} s"
     )
