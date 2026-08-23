@@ -96,10 +96,14 @@ def run_optimizer_cnmcts(
                     best_results["best_vector"] = deepcopy(best_current_vector)
             sequence.append(best_results["best_sequence"][len(sequence)])
             current_time = time.time() - start_time
-            score_evolution.append(best_results["best_sequence_score"])
             time_list.append(current_time)
+            score_evolution.append(best_results["best_sequence_score"])
             if current_time > timeout:
                 break
+
+    current_time = time.time() - start_time
+    time_list.append(current_time)
+    score_evolution.append(best_results["best_sequence_score"])
     return sequence
 
 
@@ -152,7 +156,7 @@ def optimizer_cnmcts(
         "best_vector_score": np.inf,
     }
     sequence = run_optimizer_cnmcts(
-        evaluator=evaluator,
+        evaluator=deepcopy(evaluator),
         sequence=sequence,
         best_results=best_results,
         level=level,
@@ -179,7 +183,7 @@ if __name__ == "__main__":
         "evaluator": udp,
         "timeout": 300,
         "level": 2,
-        "bandwidth": 1000,
+        "bandwidth": 100,
         "initial_state_strategy": "warm_start",
         "score_type": "best_delta_v",
         "max_steps": 4000,
