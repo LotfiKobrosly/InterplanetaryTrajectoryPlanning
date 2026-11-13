@@ -3,6 +3,9 @@ itp*
 *data*
 GTOC*
 scratch*
+figures*
+excel*
+score_evolution*
 *.sh
 *pycache*
 *.txt
@@ -17,4 +20,5 @@ scratch*
 *.jpg*
 *CMake*
 *json*
+*cassini1*
 *cassini2*
