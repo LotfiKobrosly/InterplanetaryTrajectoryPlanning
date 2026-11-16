@@ -32,12 +32,9 @@ ORBITAL_PERIODS = {
 
 # Times of flight bounds in days from Claude estimations
 TOF_BOUNDS = {
-    ("Mercury", "Mercury"): (
-        ORBITAL_PERIODS["Mercury"] // 4,
-        ORBITAL_PERIODS["Mercury"] * 4,
-    ),
-    ("Venus", "Venus"): (100, 470),
-    ("Earth", "Earth"): (ORBITAL_PERIODS["Earth"] // 4, ORBITAL_PERIODS["Earth"] * 4),
+    (planet, planet): (orbital // 4, orbital * 4)
+    for planet, orbital in ORBITAL_PERIODS.items()
+} | {
     ("Mercury", "Venus"): (60, 250),
     ("Mercury", "Earth"): (30, 400),
     ("Mercury", "Mars"): (150, 500),
@@ -94,9 +91,7 @@ MAXIMUM_THRUST = 0.1
 ISP = 3000
 
 # Variables bounds
-VARIABLES_BOUNDS = {
-    "departure_epoch": (100, 2000),  # departure window (mjd2000)
-}
+DEPARTURE_EPOCH_BOUNDS = [10, 2000]  # departure window (mjd2000)
 DV_LAUNCHER = 10000  # m/s, generous launcher capability
 SAFE_RADIUS_FACTOR = 1.05
 UNFEASIBILITY_VALUE = 1e20

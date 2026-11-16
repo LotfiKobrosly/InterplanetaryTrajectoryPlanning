@@ -1,5 +1,5 @@
 """
-Implements a Nested Monte Carlo Search
+Implements a Nested Monte Carlo Search for planets' sequence setting
 """
 
 from copy import deepcopy
@@ -8,7 +8,6 @@ import numpy as np
 import pykep as pk
 from utils.constants import (
     PLANETS,
-    VARIABLES_BOUNDS,
     SAMPLING_FUNCTIONS,
     UNFEASIBILITY_VALUE,
 )
@@ -85,7 +84,7 @@ if __name__ == "__main__":
     trajectory.instantiate("Earth", "Saturn")
     # for sampling_function in ["cnrpa"]: #["uniform", "gaussian_cma_es", "cnmcts"]:
     continuous_variables_parameters = {
-        "sampling_function": "cnrpa",
+        "sampling_function": "sade",
         "n_iterations": 500,  # for uniform and gaussian sampling
         "level": 1,  # for cNMCTS, cNRPA and derivatives
         "bandwidth": 100,  # for cNMCTS

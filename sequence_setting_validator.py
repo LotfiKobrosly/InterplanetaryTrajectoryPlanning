@@ -35,7 +35,7 @@ def rollout(policy, planets_pool, t0_bounds, tof_bounds, values_vector):
         seq=[pk.planet(pk.udpla.jpl_lp(planet)) for planet in planets_sequence],
         t0=t0_bounds,
         tof=tof_bounds,
-        vinf=3,
+        vinf=3000,
     )
 
     return planets_sequence, trajectory.fitness(values_vector)[0]

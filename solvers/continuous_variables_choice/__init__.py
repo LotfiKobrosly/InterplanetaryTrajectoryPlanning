@@ -30,5 +30,6 @@ def get_variables_values(inputs_values: dict):
     assert (
         not sampling_function is None
     ), "Specified sampling_function is unrecognizable"
+    inputs_values["solver"] = sampling_function
 
     return SAMPLING_FUNCTIONS[sampling_function](**inputs_values)

@@ -4,7 +4,7 @@ Implementing basic functions
 
 import numpy as np
 import bisect
-from utils.constants import RANDOM_GENERATOR
+from utils.constants import RANDOM_GENERATOR, TOF_BOUNDS, PLANETS
 
 
 def insert_sorted(list1, list2, val1, val2):
@@ -37,6 +37,10 @@ def cosine_similarity(vector_1: np.ndarray, vector_2: np.ndarray) -> float:
     return (vector_1 @ vector_2.T) / (
         np.linalg.norm(vector_1) * np.linalg.norm(vector_2)
     )
+
+def get_tof_bounds(planet_1: str, planet_2: str) -> list:
+    indices = [PLANETS.index(planet_1), PLANETS.index(planet_2)]
+    return list(TOF_BOUNDS[(PLANETS[min(indices)], PLANETS[max(indices)])])
 
 
 def truncate(value, min_value, max_value):

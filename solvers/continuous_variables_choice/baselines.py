@@ -17,7 +17,7 @@ import pygmo as pg
 import matplotlib.pyplot as plt
 import cma
 from utils.basic_functions import normalize, denormalize
-from utils.constants import RANDOM_GENERATOR, DV_LAUNCHER, UNFEASIBILITY_VALUE
+from utils.constants import RANDOM_GENERATOR, DV_LAUNCHER, UNFEASIBILITY_VALUE, RANDOM_SEED
 
 warnings.filterwarnings("ignore")
 
@@ -62,6 +62,15 @@ PYGMO_SOLVERS = {
             "memory": True,
         },
     },
+    "mbh": {
+        "function": pg.mbh,
+        "solver_parameters": {
+            "algo": pg.algorithm(pg.nlopt("bobyqa")),
+            "stop": 5,
+            "perturb": 0.1,
+            "seed": RANDOM_SEED,
+        }
+    }
 }
 
 
@@ -304,7 +313,7 @@ if __name__ == "__main__":
     inputs_values = {
         "evaluator": deepcopy(udp),
         "bounds": bounds,
-        "solver": "cmaes",
+        "solver": "mbh",
         "timeout": 60,
         "population_size": 50,
     }

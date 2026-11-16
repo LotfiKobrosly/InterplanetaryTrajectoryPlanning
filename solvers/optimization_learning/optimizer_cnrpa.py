@@ -286,7 +286,7 @@ def optimizer_cnrpa(
 
 if __name__ == "__main__":
     # Cassini problem
-    udp = CountingEvaluator(pk.trajopt.gym.cassini1)
+    udp = CountingEvaluator(pk.trajopt.gym.cassini2)
 
     # Variables bounds
     bounds = [
@@ -316,7 +316,7 @@ if __name__ == "__main__":
     # print(f"Total number of evaluations: {udp.count}")
 
     to_save = {"scores_evolution": scores_list, "time_list": time_list}
-    with open("Optimizer_GcNRPA_cassini1_score_evolution.json", "w") as file:
+    with open("Optimizer_GcNRPA_cassini2_score_evolution.json", "w") as file:
         json.dump(to_save, file)
 
     figure = plt.figure(figsize=(10, 10))
