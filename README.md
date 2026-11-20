@@ -4,19 +4,20 @@ The scenarios are generated randomly from the Solar System and we use the [`pyke
 
 The scripts are implementations of **Monte Carlo Tree Search** based algorithms.
 
-We also use data from the Global Trajectory Optimization Problem [portal](https://sophia.estec.esa.int/gtoc_portal/) previous competitions.
+We also aim to use data from the Global Trajectory Optimization Problem [portal](https://sophia.estec.esa.int/gtoc_portal/) previous competitions.
 
 ## Multi-Gravity Assist model (MGA)
 
-We use the MGA model described to calculate velocities of the spacecraft by solving the Lambert equation [1]. The code for this model was generated with the help of Claude LLM from Anthropic.
+We use the MGA model described to calculate velocities of the spacecraft by solving the Lambert equation [1]. Understanding the use of `pykep` was made possible thanks to the authors from the ESA and with the help of Claude from Anthropic.
 
 The sequential decision making nature of this problem explains the use of MCTS algorithms, and the decision variables are the following:
 * The planets' sequence, starting from Earth and ending at the target planet. This can later be modified to included other trajectories (as for the scenarios from GTOC).
 * The launch parameters from the start planet, defined by the launch window and a vector (velocity and angles)
 * Times of flight between planets
-* Arrival parameters at each planet: angle and radius.
 
-In general, the goal is to minimize the variation of velocity through the voyage and respect the feasability constraints.
+For now, the goal is to minimize the variation of velocity through the voyage and respect the feasability constraints. The computation is done through the `fitness` function of the `pykep.trajopt.mga` class.
+
+Implementations details and results will be available soon.
 
 
 ## References

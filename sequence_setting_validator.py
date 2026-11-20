@@ -1,6 +1,7 @@
 """
 Validation script for MCTS-based algorithms on cassini1 MGA model
 """
+
 from copy import deepcopy
 import random
 import numpy as np
@@ -12,6 +13,7 @@ from utils.constants import (
     UNFEASIBILITY_VALUE,
     RANDOM_GENERATOR,
 )
+
 
 def rollout(policy, planets_pool, t0_bounds, tof_bounds, values_vector):
     planets_sequence = ["earth"]
@@ -39,6 +41,7 @@ def rollout(policy, planets_pool, t0_bounds, tof_bounds, values_vector):
     )
 
     return planets_sequence, trajectory.fitness(values_vector)[0]
+
 
 def adapt_policy(policy, planets_sequence, learning_rate):
     for id in range(4):
@@ -101,12 +104,16 @@ if __name__ == "__main__":
     ]
     t0_bounds = bounds[0]
     tof_bounds = bounds[1:]
-    values_vector = [-773.6954071581413, 180.49035683964848, 413.5167628675508, 52.96396625990729, 1005.2849447090892, 4543.903838074617]
-    planets_pool = ["earth", "venus", "mercury", "mars", "jupiter"]
-    policy = [
-        {planet: 0 for planet in planets_pool}
-        for _ in range(5)
+    values_vector = [
+        -773.6954071581413,
+        180.49035683964848,
+        413.5167628675508,
+        52.96396625990729,
+        1005.2849447090892,
+        4543.903838074617,
     ]
+    planets_pool = ["earth", "venus", "mercury", "mars", "jupiter"]
+    policy = [{planet: 0 for planet in planets_pool} for _ in range(5)]
     sequence, dv = nrpa_test(
         policy,
         2,
@@ -121,5 +128,3 @@ if __name__ == "__main__":
     )
     print("Best sequence:", sequence)
     print(f"Total DV: {dv / 1000:.3f} km/s")
-
-    

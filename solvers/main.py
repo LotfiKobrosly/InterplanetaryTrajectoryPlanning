@@ -142,7 +142,7 @@ def main(save_file, best_sequence_file):
     }
 
     # Iterations
-    n_iterations = 2 #100
+    n_iterations = 2  # 100
 
     # Storing results
     results = np.zeros((n_iterations, len(algorithms_list)))

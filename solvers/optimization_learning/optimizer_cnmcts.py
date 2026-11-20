@@ -33,7 +33,7 @@ def run_optimizer_cnmcts(
 ):
     current_time = time.time() - start_time
     vector_size = len(sequence[0])
-    assert (level >= 0), "level cannot be non-positive"
+    assert level >= 0, "level cannot be non-positive"
     while len(sequence) <= max_steps:
         if level == 0:
             sequence.append(
@@ -137,7 +137,7 @@ def optimizer_cnmcts(
     elif initial_state_strategy == "middle":
         sequence = [[0.5] * len(lower_bounds)]
     elif initial_state_strategy == "warm_start":
-        assert (warm_starter is not None), "Unspecified warm starting algorithm"
+        assert warm_starter is not None, "Unspecified warm starting algorithm"
         warm_start_parameters = {
             "evaluator": deepcopy(evaluator),
             "solver": warm_starter,

@@ -17,7 +17,12 @@ import pygmo as pg
 import matplotlib.pyplot as plt
 import cma
 from utils.basic_functions import normalize, denormalize
-from utils.constants import RANDOM_GENERATOR, DV_LAUNCHER, UNFEASIBILITY_VALUE, RANDOM_SEED
+from utils.constants import (
+    RANDOM_GENERATOR,
+    DV_LAUNCHER,
+    UNFEASIBILITY_VALUE,
+    RANDOM_SEED,
+)
 
 warnings.filterwarnings("ignore")
 
@@ -69,8 +74,8 @@ PYGMO_SOLVERS = {
             "stop": 5,
             "perturb": 0.1,
             "seed": RANDOM_SEED,
-        }
-    }
+        },
+    },
 }
 
 
@@ -329,7 +334,7 @@ if __name__ == "__main__":
     # print(udp.pretty(values_sequence))
 
     to_save = {"scores_evolution": values_list, "time_list": time_list}
-    with open(inputs_values["solver"]+ "_cassini1_score_evolution.json", "w") as file:
+    with open(inputs_values["solver"] + "_cassini1_score_evolution.json", "w") as file:
         json.dump(to_save, file)
 
     axe = udp.plot(values_sequence, figsize=(20, 20))
