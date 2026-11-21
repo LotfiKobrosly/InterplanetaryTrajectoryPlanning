@@ -38,6 +38,7 @@ def cosine_similarity(vector_1: np.ndarray, vector_2: np.ndarray) -> float:
         np.linalg.norm(vector_1) * np.linalg.norm(vector_2)
     )
 
+
 def get_tof_bounds(planet_1: str, planet_2: str) -> list:
     indices = [PLANETS.index(planet_1), PLANETS.index(planet_2)]
     return list(TOF_BOUNDS[(PLANETS[min(indices)], PLANETS[max(indices)])])

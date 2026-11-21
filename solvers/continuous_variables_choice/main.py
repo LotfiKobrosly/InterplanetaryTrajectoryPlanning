@@ -1,9 +1,7 @@
-"""
-Verifying solvers capabilities
-"""
-
 import time
 from copy import deepcopy
+import click
+import json
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -13,28 +11,35 @@ from solvers.continuous_variables_choice.cnmcts import cnmcts
 from solvers.continuous_variables_choice.cnrpa import cnrpa
 from solvers.continuous_variables_choice.cgnrpa import cgnrpa
 from solvers.continuous_variables_choice.cabgnrpa import cabgnrpa
+from solvers.continuous_variables_choice.gaco_cabgnrpa import gaco_cabgnrpa
+from solvers.optimization_learning.optimizer_cnrpa import optimizer_cnrpa
 from solvers.continuous_variables_choice.baselines import *
 from utils.constants import UNFEASIBILITY_VALUE, DV_LAUNCHER
 
 
-if __name__ == "__main__":
+@click.command()
+@click.option("--save_file", type=str)
+@click.option("--best_sequence_file", type=str)
+def main(save_file, best_sequence_file):
+
     print("Testing Cassini MGA:\n")
+    save_folder = "./cassini2_results/"
 
     SAMPLING_FUNCTIONS = {
         "cmaes": pygmo_baseline,
         "sade": pygmo_baseline,
         "sga": pygmo_baseline,
         "simulated_annealing": pygmo_baseline,
-        # "pso": pygmo_baseline,
+        "pso": pygmo_baseline,
         "gaco": pygmo_baseline,
         "bee_colony": pygmo_baseline,
         # "uniform": uniform_variables_values_vector,
-        # "gaussian_cma_es": gaussian_variables_values_vector,
-        "cnmcts": cnmcts,
+        # "cnmcts": cnmcts,
         "cnrpa": cnrpa,
-        "cgnrpa": cgnrpa,
-        "cabgnrpa": cabgnrpa,
-        # "genetic": genetic_algorithm,
+        # "cgnrpa": cgnrpa,
+        # "cabgnrpa": cabgnrpa,
+        # "gaco_cabgnrpa": gaco_cabgnrpa,
+        "optimizer_cnrpa": optimizer_cnrpa,
     }
 
     algorithms_list = list(SAMPLING_FUNCTIONS.keys())
@@ -47,25 +52,26 @@ if __name__ == "__main__":
         "pso": "Particle Swarm Optimization (pygmo)",
         "gaco": "Generalized Ant Colony Optimization (pygmo)",
         "bee_colony": "Artificial Bee Colony (pygmo)",
-        "uniform": "Uniform sampling",
-        "gaussian_cma_es": "Custom Gaussian CMA-ES",
-        "cnmcts": "cNMCS",
-        "cnrpa": "cNRPA",
-        "cgnrpa": "cGNRPA",
-        "cabgnrpa": "cABGNRPA",
-        # "genetic": "Custom Genetic Algorithm",
+        # "uniform": "Uniform sampling",
+        # "gaussian_cma_es": "Custom Gaussian CMA-ES",
+        # "cnmcts": "cNMCS",
+        "cnrpa": "GcNRPA",
+        # "cgnrpa": "GcGNRPA",
+        # "cabgnrpa": "GcABGNRPA",
+        # "gaco_cabgnrpa": "GACO GcABGNRA",
+        "optimizer_cnrpa": "Optimizer GcNRPA",
     }
 
     # Cassini problem
-    udp = pk.trajopt.gym.cassini1
-    planets_sequence = [
-        pk.planet(pk.udpla.jpl_lp("Earth")),
-        pk.planet(pk.udpla.jpl_lp("Venus")),
-        pk.planet(pk.udpla.jpl_lp("Venus")),
-        pk.planet(pk.udpla.jpl_lp("Earth")),
-        pk.planet(pk.udpla.jpl_lp("Jupiter")),
-        pk.planet(pk.udpla.jpl_lp("Saturn")),
-    ]
+    udp = pk.trajopt.gym.cassini2
+    # planets_sequence = [
+    #     pk.planet(pk.udpla.jpl_lp("Earth")),
+    #     pk.planet(pk.udpla.jpl_lp("Venus")),
+    #     pk.planet(pk.udpla.jpl_lp("Venus")),
+    #     pk.planet(pk.udpla.jpl_lp("Earth")),
+    #     pk.planet(pk.udpla.jpl_lp("Jupiter")),
+    #     pk.planet(pk.udpla.jpl_lp("Saturn")),
+    # ]
 
     # Variables bounds
     bounds = [
@@ -75,18 +81,15 @@ if __name__ == "__main__":
 
     # General input values
     inputs_values = {
-        "evaluator": udp,
-        "planets_sequence": planets_sequence,
+        # "planets_sequence": planets_sequence,
         "bounds": bounds,
-        "n_iterations": 2500,  # for uniform and gaussian sampling
-        "n_generations": 1000,  # for Genetic Algorithm
-        "population_size": 500,  # for Genetic Algorithm
-        "mutation_probability": 0.15,  # for Genetic Algorithm
-        "mutation_effect": 0.25,  # for Genetic Algorithm
+        # "n_iterations": 2500,  # for uniform and gaussian sampling
+        # "n_generations": 1000,  # for Genetic Algorithm
+        # "population_size": 500,  # for Genetic Algorithm
+        # "mutation_probability": 0.15,  # for Genetic Algorithm
+        # "mutation_effect": 0.25,  # for Genetic Algorithm
+        "timeout": 3,  # 5min is maximum execution time
     }
-
-    # Timeouts list
-    timeouts_list = [1, 5, 10, 30, 60]  # , 300, 600]
 
     # Specific parameters
     algorithm_parameters = {
@@ -97,61 +100,87 @@ if __name__ == "__main__":
         "gaco": {"solver": "gaco"},
         "bee_colony": {"solver": "bee_colony"},
         "simulated_annealing": {"solver": "simulated_annealing"},
-        "uniform": {},
-        "gaussian_cma_es": {},
-        "cnmcts": {"level": 1, "bandwidth": int(5e6)},
-        "cnrpa": {"level": 1, "n_policies": int(1e12), "learning_rate": 0.5},
-        "cgnrpa": {
-            "level": 1,
-            "n_policies": int(1e12),
-            "learning_rate": 0.5,
-            "tau": 5,
+        # "uniform": {},
+        # "cnmcts": {"level": 2, "bandwidth": 672},
+        "cnrpa": {
+            "level": 2,
+            "n_policies": 33155,
+            "learning_rate": 0.01,
         },
-        "cabgnrpa": {
-            "level": 1,
-            "n_policies": int(1e12),
-            "learning_rate": 0.5,
-            "tau": 5,
-            "gamma": 0.25,
+        # "cgnrpa": {
+        #     "level": 3,
+        #     "n_policies": 17908,
+        #     "learning_rate": 0.154937318595788,
+        #     "tau": 2.545153120408655,
+        # },
+        # "cabgnrpa": {
+        #     "level": 1,
+        #     "n_policies": 15930,
+        #     "learning_rate": 0.034981412158836295,
+        #     "tau": 1.3316892372714013,
+        #     "gamma": 0.02938863839421489,
+        # },
+        # "gaco_cabgnrpa": {
+        #     "level": 3,
+        #     "n_policies": 29325,
+        #     "learning_rate": 0.09447145922848464,
+        #     "tau": 0.38210537834931463,
+        #     "gamma": 0.13056072395524418,
+        #     "zeta": 0.7086734675139809,
+        #     "elitism_factor": 0.020372968801098613,
+        # },
+        "optimizer_cnrpa": {
+            "level": 2,
+            "n_policies": 20000,
+            "learning_rate": 0.001,
+            "archive_size": 100,
+            "max_steps": 1,
+            "movement_range": 0.001,
+            "initial_state_strategy": "mixed",
+            "score_type": "best_delta_v",
         },
-        # "genetic": {"n_generations": 5000, "mutation_probability": 0.15},
     }
 
+    # Iterations
+    n_iterations = 2  # 100
+
     # Storing results
-    results = np.zeros((len(SAMPLING_FUNCTIONS), len(timeouts_list)))
+    results = np.zeros((n_iterations, len(algorithms_list)))
+    best_sequences = dict()
 
     for algorithm_id, algorithm in enumerate(algorithms_list):
-        for timeout_id, timeout in enumerate(timeouts_list):
-            print("\nFor " + algorithm + ":")
-            specific_input_values = deepcopy(inputs_values)
-            for arg, val in algorithm_parameters[algorithm].items():
-                specific_input_values[arg] = val
-            specific_input_values["timeout"] = timeout
+        print("\nFor " + algorithm + ":")
+        specific_input_values = deepcopy(inputs_values)
+        best_delta_v = UNFEASIBILITY_VALUE
+        best_sequence = None
+        for arg, val in algorithm_parameters[algorithm].items():
+            specific_input_values[arg] = val
+        for iteration in range(n_iterations):
+            specific_input_values["evaluator"] = deepcopy(udp)
             values_sequence, delta_v, _, _ = SAMPLING_FUNCTIONS[algorithm](
                 **specific_input_values
             )
-            results[algorithm_id, timeout_id] = min(delta_v, UNFEASIBILITY_VALUE)
-            if delta_v < UNFEASIBILITY_VALUE:
-                print(f"Delta V: {delta_v / 1000:.3f} km/s")
+            results[iteration, algorithm_id] = min(delta_v, UNFEASIBILITY_VALUE)
+            if delta_v < best_delta_v:
+                best_delta_v = delta_v
+                best_sequence = values_sequence
+            if (iteration + 1) % 10 == 0:
+                print(f"{iteration + 1} iterations done")
+        best_sequences[algorithm] = {
+            "best_sequence": list(best_sequence),
+            "delta_v": best_delta_v / 1000,
+        }
 
-                # plt.plot(time_list, best_values_list)
-                # plt.show()
-                # axe = udp.plot(values_sequence, figsize=(20, 20))
-                # figure = axe.figure
-                # axe.view_init(90, 0)
-                # axe.axis("off")
-                # axe.set_title(
-                #     algorithm.upper()
-                #     + r": $\Delta$V = "
-                #     + f"{udp.fitness(values_sequence)[0] / 1000:.3f} km/s"
-                # )
-                # figure.savefig(
-                #     "./Cassini trials/" + SAMPLING_FUNCTIONS_NAMES[algorithm] + ".png"
-                # )
-                # plt.close(figure)
-                # plt.show()
-            # else:
-            #     print("No valid solution produced")
+    # Storing all runs
+    dataframe = pd.DataFrame(
+        results, index=list(range(n_iterations)), columns=algorithms_list
+    )
+    dataframe.to_excel(save_folder + save_file)
 
-    dataframe = pd.DataFrame(results, index=algorithms_list, columns=timeouts_list)
-    dataframe.to_excel("Preliminary results Cassini.xlsx")
+    # Storing best sequences
+    with open(save_folder + best_sequence_file, "w") as file:
+        json.dump(best_sequences, file)
+
+
+if __name__ == "__main__":
+    main()

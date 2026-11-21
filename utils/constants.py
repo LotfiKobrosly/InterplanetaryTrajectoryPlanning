@@ -30,6 +30,25 @@ ORBITAL_PERIODS = {
     "Neptune": 60190.03,
 }
 
+NEXT_PLANETS = {
+    "Mercury": ["Mercury", "Mars", "Venus", "Earth", "Jupiter", "Saturn"],
+    "Venus": ["Mercury", "Mars", "Venus", "Earth", "Jupiter", "Saturn"],
+    "Earth": [
+        "Mercury",
+        "Mars",
+        "Venus",
+        "Earth",
+        "Jupiter",
+        "Saturn",
+        "Uranus",
+        "Neptune",
+    ],
+    "Mars": ["Mars", "Jupiter", "Saturn", "Uranus", "Neptune"],
+    "Jupiter": ["Jupiter", "Saturn", "Uranus", "Neptune"],
+    "Saturn": ["Uranus", "Neptune"],
+    "Uranus": ["Neptune"],
+}
+
 # Times of flight bounds in days from Claude estimations
 TOF_BOUNDS = {
     (planet, planet): (orbital // 4, orbital * 4)

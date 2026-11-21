@@ -2,10 +2,10 @@
 Implements global function to return values vector
 """
 
-from .cnmcts import cnmcts
-from .cnrpa import cnrpa
-from .cgnrpa import cgnrpa
-from .cabgnrpa import cabgnrpa
+from .sequential.cnmcts import cnmcts
+from .sequential.cnrpa import cnrpa
+from .sequential.cgnrpa import cgnrpa
+from .sequential.cabgnrpa import cabgnrpa
 from .baselines import *
 
 SAMPLING_FUNCTIONS = {

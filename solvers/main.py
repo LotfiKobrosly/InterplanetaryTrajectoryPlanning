@@ -7,12 +7,14 @@ import numpy as np
 import pandas as pd
 import pykep as pk
 import pygmo as pg
-from solvers.continuous_variables_choice.cnmcts import cnmcts
-from solvers.continuous_variables_choice.cnrpa import cnrpa
-from solvers.continuous_variables_choice.cgnrpa import cgnrpa
-from solvers.continuous_variables_choice.cabgnrpa import cabgnrpa
-from solvers.continuous_variables_choice.gaco_cabgnrpa import gaco_cabgnrpa
-from solvers.optimization_learning.optimizer_cnrpa import optimizer_cnrpa
+from solvers.continuous_variables_choice.sequential.cnmcts import cnmcts
+from solvers.continuous_variables_choice.sequential.cnrpa import cnrpa
+from solvers.continuous_variables_choice.sequential.cgnrpa import cgnrpa
+from solvers.continuous_variables_choice.sequential.cabgnrpa import cabgnrpa
+from solvers.continuous_variables_choice.sequential.gaco_cabgnrpa import gaco_cabgnrpa
+from solvers.continuous_variables_choice.optimization_learning.optimizer_cnrpa import (
+    optimizer_cnrpa,
+)
 from solvers.continuous_variables_choice.baselines import *
 from utils.constants import UNFEASIBILITY_VALUE, DV_LAUNCHER
 

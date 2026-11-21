@@ -18,7 +18,7 @@ from utils.constants import (
 )
 from utils.basic_functions import *
 from utils.gaussian_kernel import GaussianKernel
-from solvers.continuous_variables_choice.cnrpa import adapt_policy
+from solvers.continuous_variables_choice.sequential.cnrpa import adapt_policy
 from utils.udp_wrapper import CountingEvaluator
 
 

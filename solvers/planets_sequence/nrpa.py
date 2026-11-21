@@ -133,11 +133,7 @@ def adapt_policy(
             current_policy = step_policy.get(key, None)
 
             if current_policy is None:
-                current_policy = {
-                    planet: 0
-                    for planet in legal_moves[last_planet]
-                    if planet != target_body
-                }
+                current_policy = {planet: 0 for planet in legal_moves[last_planet]}
             step_policy[key] = current_policy
 
         # Adapt policy
@@ -323,7 +319,7 @@ if __name__ == "__main__":
 
     # Hyperparameters
     level = 1
-    n_policies = 100
+    n_policies = 10
     sequence_size = 5
     learning_rate = 0.1
     policy_type = "last_planet"  # "simple", "last_planet", or "sequence_dependent"
